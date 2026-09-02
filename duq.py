@@ -1,6 +1,6 @@
 import json
 import re
-from typing import Any, Callable, TypedDict
+from typing import Any, TypedDict
 import bs4
 import requests
 
