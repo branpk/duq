@@ -1,4 +1,7 @@
+import asyncio
 import json
+import time
+from typing import AsyncIterator
 
 import bs4
 import requests
@@ -58,6 +61,27 @@ def evaluate_expr(expr: Expr, inp: Value) -> Value:
     elif proc_name == "mapValues":
         assert type(inp) is dict
         return {key: evaluate_chain(raw_args, value) for key, value in inp.items()}
+
+    # stream
+    elif proc_name == "stream.map":
+        assert isinstance(inp, AsyncIterator)
+
+        async def map_stream() -> AsyncIterator[Value]:
+            async for item in inp:
+                yield evaluate_chain(raw_args, item)
+
+        return map_stream()
+    elif proc_name == "stream.filter":
+        assert isinstance(inp, AsyncIterator)
+
+        async def filter_stream() -> AsyncIterator[Value]:
+            async for item in inp:
+                cond = evaluate_chain(raw_args, item)
+                assert type(cond) is bool
+                if cond:
+                    yield item
+
+        return filter_stream()
 
     ## Functions
 
@@ -225,6 +249,21 @@ def evaluate_expr(expr: Expr, inp: Value) -> Value:
         if not response.ok:
             raise Exception(f"request error: {arg} -> {response.status_code}")
         return response.text
+
+    # stream
+    elif proc_name == "stream.every":
+        assert len(args) == 1
+        arg = args[0]
+        assert type(arg) is int or type(arg) is float
+
+        async def every(secs: float) -> AsyncIterator[None]:
+            while True:
+                start = time.time()
+                yield None
+                duration = max(start + secs - time.time(), 0)
+                await asyncio.sleep(duration)
+
+        return every(arg)
 
     # json
     elif proc_name == "json":

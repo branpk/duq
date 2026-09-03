@@ -1,4 +1,4 @@
-from typing import TypedDict
+from typing import AsyncIterator, TypedDict
 
 import bs4
 
@@ -11,4 +11,14 @@ class Proc(TypedDict):
 type Expr = None | int | float | str | bool | Proc
 
 
-type Value = None | int | float | str | bool | list[Value] | dict[str, Value] | bs4.Tag
+type Value = (
+    None
+    | int
+    | float
+    | str
+    | bool
+    | list[Value]
+    | dict[str, Value]
+    | AsyncIterator[Value]
+    | bs4.Tag
+)
