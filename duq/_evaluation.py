@@ -1,7 +1,7 @@
 import asyncio
 import json
 import time
-from typing import AsyncIterator
+from typing import AsyncIterator, Awaitable
 
 import bs4
 import requests
@@ -62,6 +62,16 @@ def evaluate_expr(expr: Expr, inp: Value) -> Value:
         assert type(inp) is dict
         return {key: evaluate_chain(raw_args, value) for key, value in inp.items()}
 
+    # future
+    elif proc_name == "future.map":
+        assert isinstance(inp, Awaitable)
+
+        async def map_future() -> Value:
+            value = await inp
+            return evaluate_chain(raw_args, value)
+
+        return map_future()
+
     # stream
     elif proc_name == "stream.map":
         assert isinstance(inp, AsyncIterator)
@@ -82,6 +92,14 @@ def evaluate_expr(expr: Expr, inp: Value) -> Value:
                     yield item
 
         return filter_stream()
+    elif proc_name == "stream.first":
+        assert isinstance(inp, AsyncIterator)
+
+        async def stream_first() -> Value:
+            async for item in inp:
+                return item
+
+        return stream_first()
 
     ## Functions
 

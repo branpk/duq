@@ -1,4 +1,4 @@
-from typing import AsyncIterator, TypedDict
+from typing import AsyncIterator, Awaitable, TypedDict
 
 import bs4
 
@@ -19,6 +19,7 @@ type Value = (
     | bool
     | list[Value]
     | dict[str, Value]
+    | Awaitable[Value]
     | AsyncIterator[Value]
     | bs4.Tag
 )
