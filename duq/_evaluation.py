@@ -253,6 +253,15 @@ def evaluate_expr(expr: Expr, inp: Value) -> Value:
             assert type(item) is int or type(item) is float
             total += item
         return total / len(inp)
+    elif proc_name == "list.stream":
+        assert len(args) == 0
+        assert type(inp) is list
+
+        async def list_stream() -> AsyncIterator[Value]:
+            for item in inp:
+                yield item
+
+        return list_stream()
 
     # record
     elif proc_name == "field":
