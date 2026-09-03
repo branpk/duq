@@ -1,4 +1,5 @@
 import asyncio
+from datetime import datetime
 import json
 import time
 from typing import AsyncIterator, Awaitable
@@ -100,6 +101,19 @@ def evaluate_expr(expr: Expr, inp: Value) -> Value:
                 return item
 
         return stream_first()
+    elif proc_name == "stream.accum":
+        assert isinstance(inp, AsyncIterator)
+        assert len(raw_args) == 2
+        init = evaluate_expr(raw_args[0], None)
+
+        async def stream_accum() -> AsyncIterator[Value]:
+            current = init
+            yield current
+            async for item in inp:
+                current = evaluate_expr(raw_args[1], [current, item])
+                yield current
+
+        return stream_accum()
 
     ## Functions
 
@@ -114,6 +128,9 @@ def evaluate_expr(expr: Expr, inp: Value) -> Value:
         assert type(args[0]) is type(inp)
         assert type(inp) in [int, str]
         return inp == args[0]
+    elif proc_name == "time.now":
+        assert len(args) == 0
+        return datetime.now().isoformat(timespec="milliseconds") + "Z"
 
     # number
     elif proc_name == "float":
@@ -269,19 +286,37 @@ def evaluate_expr(expr: Expr, inp: Value) -> Value:
         return response.text
 
     # stream
-    elif proc_name == "stream.every":
+    elif proc_name == "stream.interval":
         assert len(args) == 1
         arg = args[0]
         assert type(arg) is int or type(arg) is float
+        assert arg >= 0
 
-        async def every(secs: float) -> AsyncIterator[None]:
+        async def interval(secs: float) -> AsyncIterator[Value]:
+            prev = time.time()
             while True:
-                start = time.time()
-                yield None
-                duration = max(start + secs - time.time(), 0)
+                duration = max(prev + secs - time.time(), 0)
                 await asyncio.sleep(duration)
+                yield None
+                prev = time.time()
 
-        return every(arg)
+        return interval(arg)
+    elif proc_name == "stream.limit":
+        assert len(args) == 1
+        arg = args[0]
+        assert type(arg) is int
+        assert arg >= 0
+        assert isinstance(inp, AsyncIterator)
+
+        async def limit(n: int) -> AsyncIterator[Value]:
+            if n > 0:
+                async for item in inp:
+                    yield item
+                    n -= 1
+                    if n <= 0:
+                        break
+
+        return limit(arg)
 
     # json
     elif proc_name == "json":
