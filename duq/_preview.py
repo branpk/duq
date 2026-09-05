@@ -73,7 +73,6 @@ class Preview:
             error = f"Error: {e}"
 
         output = render_value(self.current_value)
-        error = ""
 
         self.set_output(output)
         self.set_error(error)

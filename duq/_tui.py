@@ -3,6 +3,7 @@ from pathlib import Path
 
 from prompt_toolkit import Application
 from prompt_toolkit.buffer import Buffer
+from prompt_toolkit.document import Document
 from prompt_toolkit.filters import Condition
 from prompt_toolkit.key_binding import KeyBindings, KeyPressEvent
 from prompt_toolkit.layout import (
@@ -41,6 +42,8 @@ def run_tui():
             text = source_buffer.text
             pos = source_buffer.cursor_position
             if pos >= 1 and text[pos - 1] == "\\":
+                return False
+            if pos >= 1 and lbrace == rbrace and text[pos - 1] == lbrace:
                 return False
             if pos < len(text) and (text[pos].isalnum() or text[pos] == "_"):
                 return False
@@ -91,14 +94,14 @@ def run_tui():
     def on_cursor_position_changed(source_buffer: Buffer) -> None:
         preview.set_cursor_position(source_buffer.cursor_position)
 
-    output_buffer = Buffer()
-    error_buffer = Buffer()
+    output_buffer = Buffer(read_only=True)
+    error_buffer = Buffer(read_only=True)
 
     def set_output(text: str) -> None:
-        output_buffer.text = text
+        output_buffer.set_document(Document(text), bypass_readonly=True)
 
     def set_error(text: str) -> None:
-        error_buffer.text = text
+        error_buffer.set_document(Document(text), bypass_readonly=True)
 
     preview = Preview(set_output=set_output, set_error=set_error)
 
