@@ -42,7 +42,11 @@ def run_tui():
         def should_auto_close() -> bool:
             text = source_buffer.text
             pos = source_buffer.cursor_position
-            return pos >= 1 and text[pos - 1] != "\\"
+            if pos >= 1 and text[pos - 1] == "\\":
+                return False
+            if pos < len(text) and text[pos].isalnum() or text[pos] == "_":
+                return False
+            return True
 
         @Condition
         def should_eat_closing_brace() -> bool:
