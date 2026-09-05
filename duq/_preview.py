@@ -1,3 +1,4 @@
+import asyncio
 from dataclasses import dataclass
 import dataclasses
 import json
@@ -31,7 +32,7 @@ def truncate_expr_list(expr_list: ExprList, cursor_position: int) -> ExprList:
     )
 
 
-def render_value(value: Value) -> str:
+def render_value_sync(value: Value) -> str:
     if isinstance(value, Awaitable):
         return "<future>"
     elif isinstance(value, AsyncIterator):
@@ -42,13 +43,26 @@ def render_value(value: Value) -> str:
         return json.dumps(value, indent=2)
 
 
+async def render_value(value: Value) -> AsyncIterator[str]:
+    if isinstance(value, Awaitable):
+        yield "<future>"
+    elif isinstance(value, AsyncIterator):
+        items: list[str] = []
+        yield "..."
+        async for item in value:
+            items.append(render_value_sync(item))
+            yield "\n".join(items) + "\n..."
+    else:
+        yield render_value_sync(value)
+
+
 class Preview:
     def __init__(
         self, set_output: Callable[[str], None], set_error: Callable[[str], None]
     ) -> None:
         self.source = ""
         self.cursor_position = 0
-        self.current_value = None
+        self.current_task: asyncio.Task | None = None
         self.set_output = set_output
         self.set_error = set_error
 
@@ -67,12 +81,16 @@ class Preview:
         try:
             expr_list = parse(self.source)
             truncated = truncate_expr_list(expr_list, self.cursor_position)
-            self.current_value = evaluate_chain(truncated.exprs, None)
-            error = ""
+            result = evaluate_chain(truncated.exprs, None)
         except Exception as e:
-            error = f"Error: {e}"
+            self.set_error(f"Error: {e}")
+        else:
 
-        output = render_value(self.current_value)
+            async def set_output_task():
+                async for output in render_value(result):
+                    self.set_output(output)
 
-        self.set_output(output)
-        self.set_error(error)
+            if self.current_task != None:
+                self.current_task.cancel()
+            self.current_task = asyncio.create_task(set_output_task())
+            self.set_error("")

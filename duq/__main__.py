@@ -4,7 +4,7 @@ import sys
 import duq
 
 if len(sys.argv) == 1:
-    duq.run_tui()
+    asyncio.run(duq.run_tui())
     sys.exit(0)
 
 if len(sys.argv) != 2:

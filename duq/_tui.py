@@ -8,6 +8,7 @@ from prompt_toolkit.filters import Condition
 from prompt_toolkit.key_binding import KeyBindings, KeyPressEvent
 from prompt_toolkit.layout import (
     BufferControl,
+    Dimension,
     HSplit,
     Layout,
     NumberedMargin,
@@ -18,7 +19,7 @@ from prompt_toolkit.layout import (
 from duq._preview import Preview
 
 
-def run_tui():
+async def run_tui():
     state_file = Path("data/state.json")
     try:
         with open(state_file) as f:
@@ -98,7 +99,13 @@ def run_tui():
     error_buffer = Buffer(read_only=True)
 
     def set_output(text: str) -> None:
+        # pos = output_buffer.cursor_position
+        # is_bottom = output_buffer.text[pos:].count("\n") < 2
         output_buffer.set_document(Document(text), bypass_readonly=True)
+        # if is_bottom:
+        #     output_buffer.cursor_position = len(output_buffer.text)
+        # else:
+        #     output_buffer.cursor_position = pos
 
     def set_error(text: str) -> None:
         error_buffer.set_document(Document(text), bypass_readonly=True)
@@ -123,6 +130,7 @@ def run_tui():
                 BufferControl(output_buffer),
                 left_margins=[NumberedMargin()],
                 dont_extend_height=True,
+                height=Dimension(1, 40),
             ),
             Window(
                 BufferControl(error_buffer),
@@ -142,4 +150,4 @@ def run_tui():
         layout=layout,
     )
 
-    app.run()
+    await app.run_async()
