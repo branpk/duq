@@ -1,7 +1,11 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
 import re
 from typing import Literal, TypedDict
 
 type TokenKind = Literal[
+    "eof",
     "whitespace",
     "comment",
     "null",
@@ -15,18 +19,36 @@ type TokenKind = Literal[
 ]
 
 
-class Token(TypedDict):
+@dataclass(frozen=True)
+class Token:
     kind: TokenKind
     span: tuple[int, int]
     text: str
 
 
-class OpExpr(TypedDict):
-    name: str
-    args: list["Expr"]
+@dataclass(frozen=True)
+class LiteralExpr:
+    type: Literal["literal"]
+    span: tuple[int, int]
+    literal: Token
+    value: None | int | float | str | bool
 
 
-type Expr = None | int | float | str | bool | OpExpr
+@dataclass(frozen=True)
+class OpExpr:
+    type: Literal["op"]
+    span: tuple[int, int]
+    name: Token
+    arg_list: ExprList | None
+
+
+type Expr = LiteralExpr | OpExpr
+
+
+@dataclass(frozen=True)
+class ExprList:
+    span: tuple[int, int]
+    exprs: tuple[Expr, ...]
 
 
 def lex(s: str) -> list[Token]:
@@ -62,55 +84,88 @@ def lex(s: str) -> list[Token]:
         text = s[: match.end()]
         tokens.append(Token(kind=kind, span=span, text=text))
         s = s[match.end() :]
+        i += match.end()
+    tokens.append(Token(kind="eof", span=(i, i), text="<eof>"))
     return tokens
 
 
 def get_token_value(
     token: Token,
 ) -> None | int | float | str | bool | Literal["trivia", "symbol", "(", ")"]:
-    token_kind = token["kind"]
-    token_text = token["text"]
-    if token_kind == "whitespace" or token_kind == "comment":
+    if token.kind == "whitespace" or token.kind == "comment":
         return "trivia"
-    elif token_kind == "null":
+    elif token.kind == "null":
         return None
-    elif token_kind == "bool":
-        return token_text == "true"
-    elif token_kind == "int":
-        return int(token_text, base=0)
-    elif token_kind == "float":
-        return float(token_text)
-    elif token_kind == "str":
-        return eval(token_text)
+    elif token.kind == "bool":
+        return token.text == "true"
+    elif token.kind == "int":
+        return int(token.text, base=0)
+    elif token.kind == "float":
+        return float(token.text)
+    elif token.kind == "str":
+        return eval(token.text)
     else:
-        return token_kind
+        return token.kind
 
 
-def parse(s: str) -> list[Expr]:
-    stack: list[list[Expr]] = [[]]
-    can_accept_args = False
-    for token in lex(s):
-        token_value = get_token_value(token)
-        if token_value == "trivia":
-            pass
-        elif token_value == "symbol":
-            stack[-1].append({"name": token["text"], "args": []})
-            can_accept_args = True
-        elif token_value == "(":
-            if not can_accept_args:
-                raise Exception("invalid arg list")
-            stack.append([])
-            can_accept_args = False
-        elif token_value == ")":
-            if len(stack) <= 1:
-                raise Exception("unbalanced parentheses")
-            args = stack.pop()
-            assert type(stack[-1][-1]) == dict
-            stack[-1][-1]["args"] = args
-            can_accept_args = False
+def parse_literal_expr(tokens: list[Token]) -> LiteralExpr:
+    token = tokens.pop(0)
+    if token.kind == "null":
+        value = None
+    elif token.kind == "bool":
+        value = token.text == "true"
+    elif token.kind == "int":
+        value = int(token.text, base=0)
+    elif token.kind == "float":
+        value = float(token.text)
+    elif token.kind == "str":
+        value = eval(token.text)
+    else:
+        raise Exception(f"expected expression, found `{token.text}`")
+    return LiteralExpr(type="literal", span=token.span, literal=token, value=value)
+
+
+def parse_op_expr(tokens: list[Token]) -> OpExpr:
+    head = tokens.pop(0)
+    if head.kind != "symbol":
+        raise Exception(f"expected operation, found `{head.text}`")
+    while tokens[0].kind == "whitespace" or tokens[0].kind == "comment":
+        tokens.pop(0)
+    if tokens[0].kind == "(":
+        tokens.pop(0)
+        arg_list = parse_expr_list(tokens)
+        rparen = tokens.pop(0)
+        if rparen.kind != ")":
+            raise Exception(f"expected `)`, found `{head.text}`")
+        return OpExpr(
+            type="op", span=(head.span[0], rparen.span[1]), name=head, arg_list=arg_list
+        )
+    else:
+        return OpExpr(type="op", span=head.span, name=head, arg_list=None)
+
+
+def parse_expr(tokens: list[Token]) -> Expr:
+    if tokens[0].kind == "symbol":
+        return parse_op_expr(tokens)
+    else:
+        return parse_literal_expr(tokens)
+
+
+def parse_expr_list(tokens: list[Token]) -> ExprList:
+    start = tokens[0].span[0]
+    exprs: list[Expr] = []
+    while tokens[0].kind != ")" and tokens[0].kind != "eof":
+        if tokens[0].kind == "whitespace" or tokens[0].kind == "comment":
+            tokens.pop(0)
         else:
-            stack[-1].append(token_value)
-            can_accept_args = False
-    if len(stack) != 1:
-        raise Exception("unbalanced parentheses")
-    return stack[0]
+            exprs.append(parse_expr(tokens))
+    end = tokens[0].span[0]
+    return ExprList(span=(start, end), exprs=tuple(exprs))
+
+
+def parse(source: str) -> ExprList:
+    tokens = lex(source)
+    expr_list = parse_expr_list(tokens)
+    if tokens[0].kind != "eof":
+        raise Exception(f"expected `<eof>`, found `{tokens[0].text}`")
+    return expr_list

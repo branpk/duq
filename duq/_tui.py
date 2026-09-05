@@ -13,7 +13,6 @@ from prompt_toolkit.layout import (
     Window,
 )
 
-import duq
 from duq._preview import Preview
 
 
@@ -30,6 +29,7 @@ def run_tui():
     key_bindings = KeyBindings()
 
     @key_bindings.add("c-c")
+    @key_bindings.add("c-d")
     def exit_(event: KeyPressEvent) -> None:
         event.app.exit()
 

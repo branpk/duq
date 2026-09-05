@@ -2,12 +2,12 @@ import asyncio
 from datetime import datetime
 import json
 import time
-from typing import AsyncIterator, Awaitable
+from typing import AsyncIterator, Awaitable, Iterable
 
 import bs4
 import requests
 
-from duq._syntax import parse, Expr
+from duq._syntax import ExprList, parse, Expr
 
 type Value = (
     None
@@ -24,11 +24,11 @@ type Value = (
 
 
 def evaluate_expr(expr: Expr, inp: Value) -> Value:
-    if expr is None or isinstance(expr, (int, float, str, bool)):
-        return expr
+    if expr.type == "literal":
+        return expr.value
 
-    op_name = expr["name"]
-    raw_args = expr["args"]
+    op_name = expr.name.text
+    raw_args: tuple[Expr, ...] = expr.arg_list.exprs if expr.arg_list else ()
 
     ## Macros
 
@@ -368,12 +368,12 @@ def evaluate_expr(expr: Expr, inp: Value) -> Value:
     raise Exception(f"unknown operation: {op_name}")
 
 
-def evaluate_chain(exprs: list[Expr], inp: Value) -> Value:
+def evaluate_chain(exprs: Iterable[Expr], inp: Value) -> Value:
     for expr in exprs:
         inp = evaluate_expr(expr, inp)
     return inp
 
 
 def evaluate(source: str, inp: Value = None) -> Value:
-    exprs = parse(source)
-    return evaluate_chain(exprs, inp)
+    expr_list = parse(source)
+    return evaluate_chain(expr_list.exprs, inp)
