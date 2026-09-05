@@ -44,7 +44,7 @@ def run_tui():
             pos = source_buffer.cursor_position
             if pos >= 1 and text[pos - 1] == "\\":
                 return False
-            if pos < len(text) and text[pos].isalnum() or text[pos] == "_":
+            if pos < len(text) and (text[pos].isalnum() or text[pos] == "_"):
                 return False
             return True
 
