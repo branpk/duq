@@ -1,7 +1,12 @@
 import asyncio
 import sys
+import warnings
 
 import duq
+
+warnings.filterwarnings(
+    "ignore", message=".*was never awaited.*", category=RuntimeWarning
+)
 
 if len(sys.argv) == 1:
     asyncio.run(duq.run_tui())

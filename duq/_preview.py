@@ -45,13 +45,17 @@ def render_value_sync(value: Value) -> str:
 
 async def render_value(value: Value) -> AsyncIterator[str]:
     if isinstance(value, Awaitable):
-        yield "<future>"
+        yield "..."
+        result = await value
+        async for output in render_value(result):
+            yield output
     elif isinstance(value, AsyncIterator):
         items: list[str] = []
         yield "..."
         async for item in value:
             items.append(render_value_sync(item))
             yield "\n".join(items) + "\n..."
+        yield "\n".join(items)
     else:
         yield render_value_sync(value)
 

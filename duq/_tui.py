@@ -99,13 +99,9 @@ async def run_tui():
     error_buffer = Buffer(read_only=True)
 
     def set_output(text: str) -> None:
-        # pos = output_buffer.cursor_position
-        # is_bottom = output_buffer.text[pos:].count("\n") < 2
+        pos = output_buffer.cursor_position
         output_buffer.set_document(Document(text), bypass_readonly=True)
-        # if is_bottom:
-        #     output_buffer.cursor_position = len(output_buffer.text)
-        # else:
-        #     output_buffer.cursor_position = pos
+        output_buffer.cursor_position = min(pos, len(output_buffer.text))
 
     def set_error(text: str) -> None:
         error_buffer.set_document(Document(text), bypass_readonly=True)
