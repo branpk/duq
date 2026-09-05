@@ -2,12 +2,12 @@ import asyncio
 from datetime import datetime
 import json
 import time
-from typing import AsyncIterator, Awaitable, Iterable
+from typing import Any, AsyncIterator, Awaitable, Coroutine, Iterable
 
 import bs4
-import requests
+import httpx
 
-from duq._syntax import ExprList, parse, Expr
+from duq._syntax import parse, Expr
 
 type Value = (
     None
@@ -296,15 +296,37 @@ def evaluate_expr(expr: Expr, inp: Value) -> Value:
         assert len(args) == 0 or len(args) == 1
         arg = inp if len(args) == 0 else args[0]
         assert type(arg) is str
-        response = requests.get(
-            arg,
-            headers={
-                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36"
-            },
-        )
-        if not response.ok:
-            raise Exception(f"request error: {arg} -> {response.status_code}")
-        return response.text
+
+        async def fetch_task():
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    arg,
+                    headers={
+                        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36"
+                    },
+                )
+                if response.status_code != 200:
+                    raise Exception(f"request error: {arg} -> {response.status_code}")
+            return response.text
+
+        return fetch_task()
+
+    # future
+    elif op_name == "future.sleep":
+        assert len(args) == 1
+        arg = args[0]
+        assert type(arg) is int or type(arg) is float
+        assert arg >= 0
+        return asyncio.sleep(arg)
+    elif op_name == "future.all":
+        assert len(args) == 0
+        assert type(inp) is list
+        assert all(isinstance(item, Awaitable) for item in inp)
+
+        async def all_task() -> list[Value]:
+            return await asyncio.gather(*inp)  # type: ignore
+
+        return all_task()
 
     # stream
     elif op_name == "stream.interval":

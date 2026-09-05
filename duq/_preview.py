@@ -2,7 +2,7 @@ import asyncio
 from dataclasses import dataclass
 import dataclasses
 import json
-from typing import AsyncIterator, Awaitable, Callable
+from typing import AsyncIterator, Awaitable, Callable, Iterable
 
 import bs4
 
@@ -32,32 +32,98 @@ def truncate_expr_list(expr_list: ExprList, cursor_position: int) -> ExprList:
     )
 
 
-def render_value_sync(value: Value) -> str:
-    if isinstance(value, Awaitable):
+# type Value = (
+#     | list[Value]
+#     | dict[str, Value]
+#     | Awaitable[Value]
+#     | AsyncIterator[Value]
+#     | bs4.Tag
+# )
+
+
+def render_items(
+    start: str, end: str, items: Iterable[str], indent: int, sep=","
+) -> str:
+    indent_str = " " * indent
+    if not items:
+        return start + end
+    elif len(result := start + (sep + " ").join(items) + end) < 40:
+        return result
+    else:
+        result = start
+        for item in items:
+            result += "\n" + indent_str + "  " + item + sep
+        result += "\n" + indent_str + end
+        return result
+
+
+def render_value_sync(value: Value, indent=0) -> str:
+    if value is None or isinstance(value, (int, float, str, bool)):
+        return json.dumps(value)
+    elif isinstance(value, list):
+        return render_items(
+            "[",
+            "]",
+            [render_value_sync(item, indent + 2) for item in value],
+            indent,
+        )
+    elif isinstance(value, dict):
+        return render_items(
+            "{",
+            "}",
+            [
+                json.dumps(key) + ": " + render_value_sync(value, indent + 2)
+                for key, value in value.items()
+            ],
+            indent,
+        )
+    elif isinstance(value, Awaitable):
         return "<future>"
     elif isinstance(value, AsyncIterator):
         return "<stream>"
     elif isinstance(value, bs4.Tag):
         return "<html>"
-    else:
-        return json.dumps(value, indent=2)
 
 
-async def render_value(value: Value) -> AsyncIterator[str]:
-    if isinstance(value, Awaitable):
-        yield "..."
-        result = await value
-        async for output in render_value(result):
-            yield output
+async def render_value(value: Value, indent=0) -> AsyncIterator[str]:
+    if value is None or isinstance(value, (int, float, str, bool)):
+        yield json.dumps(value)
+    elif isinstance(value, list):
+        items = ["..."] * len(value)
+        yield render_items("[", "]", items, indent)
+
+        queue = asyncio.Queue[None]()
+
+        async def item_coroutine(i: int):
+            async for output in render_value(value[i], indent + 2):
+                items[i] = output
+                await queue.put(None)
+
+        async with asyncio.TaskGroup() as task_group:
+            for i in range(len(value)):
+                task_group.create_task(item_coroutine(i))
+
+            while True:
+                await queue.get()
+                yield render_items("[", "]", items, indent)
+    elif isinstance(value, Awaitable):
+        yield render_items("future(", ")", ["..."], indent, sep="")
+        try:
+            result = await value
+        except Exception as e:
+            yield render_items("future(", ")", [f"Error: {e}"], indent, sep="")
+        else:
+            async for output in render_value(result, indent + 2):
+                yield render_items("future(", ")", [output], indent, sep="")
     elif isinstance(value, AsyncIterator):
         items: list[str] = []
-        yield "..."
+        yield render_items("stream[", "]", ["..."], indent)
         async for item in value:
-            items.append(render_value_sync(item))
-            yield "\n".join(items) + "\n..."
-        yield "\n".join(items)
+            items.append(render_value_sync(item, indent + 2))
+            yield render_items("stream[", "]", items + ["..."], indent)
+        yield render_items("stream[", "]", items, indent)
     else:
-        yield render_value_sync(value)
+        yield render_value_sync(value, indent)
 
 
 class Preview:
