@@ -3,7 +3,7 @@ from typing import AsyncIterator, Awaitable, assert_never
 
 import bs4
 
-from duq._types import Value
+from duq._evaluation import Value
 
 
 async def print_value_async(value: Value) -> None:

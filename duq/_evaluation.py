@@ -7,31 +7,43 @@ from typing import AsyncIterator, Awaitable
 import bs4
 import requests
 
-from duq._syntax import parse
-from duq._types import Expr, Value
+from duq._syntax import parse, Expr
+
+type Value = (
+    None
+    | int
+    | float
+    | str
+    | bool
+    | list[Value]
+    | dict[str, Value]
+    | Awaitable[Value]
+    | AsyncIterator[Value]
+    | bs4.Tag
+)
 
 
 def evaluate_expr(expr: Expr, inp: Value) -> Value:
     if expr is None or isinstance(expr, (int, float, str, bool)):
         return expr
 
-    proc_name = expr["name"]
+    op_name = expr["name"]
     raw_args = expr["args"]
 
     ## Macros
 
     # basic
-    if proc_name == "do":
+    if op_name == "do":
         return evaluate_chain(raw_args, inp)
 
     # list
-    elif proc_name == "map":
+    elif op_name == "map":
         assert type(inp) is list
         result = []
         for item in inp:
             result.append(evaluate_chain(raw_args, item))
         return result
-    elif proc_name == "filter":
+    elif op_name == "filter":
         assert type(inp) is list
         result = []
         for item in inp:
@@ -40,7 +52,7 @@ def evaluate_expr(expr: Expr, inp: Value) -> Value:
             if cond:
                 result.append(item)
         return result
-    elif proc_name == "groupBy":
+    elif op_name == "groupBy":
         assert type(inp) is list
         result = {}
         for item in inp:
@@ -48,7 +60,7 @@ def evaluate_expr(expr: Expr, inp: Value) -> Value:
             assert type(key) is str
             result.setdefault(key, []).append(item)
         return result
-    elif proc_name == "keyBy":
+    elif op_name == "keyBy":
         assert type(inp) is list
         result = {}
         for item in inp:
@@ -59,12 +71,12 @@ def evaluate_expr(expr: Expr, inp: Value) -> Value:
         return result
 
     # record
-    elif proc_name == "mapValues":
+    elif op_name == "mapValues":
         assert type(inp) is dict
         return {key: evaluate_chain(raw_args, value) for key, value in inp.items()}
 
     # future
-    elif proc_name == "future.map":
+    elif op_name == "future.map":
         assert isinstance(inp, Awaitable)
 
         async def map_future() -> Value:
@@ -74,7 +86,7 @@ def evaluate_expr(expr: Expr, inp: Value) -> Value:
         return map_future()
 
     # stream
-    elif proc_name == "stream.map":
+    elif op_name == "stream.map":
         assert isinstance(inp, AsyncIterator)
 
         async def map_stream() -> AsyncIterator[Value]:
@@ -82,7 +94,7 @@ def evaluate_expr(expr: Expr, inp: Value) -> Value:
                 yield evaluate_chain(raw_args, item)
 
         return map_stream()
-    elif proc_name == "stream.filter":
+    elif op_name == "stream.filter":
         assert isinstance(inp, AsyncIterator)
 
         async def filter_stream() -> AsyncIterator[Value]:
@@ -93,7 +105,7 @@ def evaluate_expr(expr: Expr, inp: Value) -> Value:
                     yield item
 
         return filter_stream()
-    elif proc_name == "stream.first":
+    elif op_name == "stream.first":
         assert isinstance(inp, AsyncIterator)
 
         async def stream_first() -> Value:
@@ -101,7 +113,7 @@ def evaluate_expr(expr: Expr, inp: Value) -> Value:
                 return item
 
         return stream_first()
-    elif proc_name == "stream.accum":
+    elif op_name == "stream.accum":
         assert isinstance(inp, AsyncIterator)
         assert len(raw_args) == 2
         init = evaluate_expr(raw_args[0], None)
@@ -120,63 +132,63 @@ def evaluate_expr(expr: Expr, inp: Value) -> Value:
     args = [evaluate_expr(arg, inp) for arg in raw_args]
 
     # basic
-    if proc_name == "id":
+    if op_name == "id":
         assert len(args) == 0
         return inp
-    elif proc_name == "eq":
+    elif op_name == "eq":
         assert len(args) == 1
         assert type(args[0]) is type(inp)
         assert type(inp) in [int, str]
         return inp == args[0]
-    elif proc_name == "time.now":
+    elif op_name == "time.now":
         assert len(args) == 0
         return datetime.now().isoformat(timespec="milliseconds") + "Z"
 
     # number
-    elif proc_name == "float":
+    elif op_name == "float":
         assert len(args) == 0 or len(args) == 1
         arg = inp if len(args) == 0 else args[0]
         assert type(arg) is str or type(arg) is int or type(arg) is float
         return float(arg)
-    elif proc_name == "int":
+    elif op_name == "int":
         assert len(args) == 0 or len(args) == 1
         arg = inp if len(args) == 0 else args[0]
         assert type(arg) is int or type(arg) is str
         return int(arg, base=0) if type(arg) is str else arg
-    elif proc_name == "add":
+    elif op_name == "add":
         assert len(args) == 1
         assert type(args[0]) is int or type(args[0]) is float
         assert type(inp) is int or type(inp) is float
         return inp + args[0]
-    elif proc_name == "sub":
+    elif op_name == "sub":
         assert len(args) == 1
         assert type(args[0]) is int or type(args[0]) is float
         assert type(inp) is int or type(inp) is float
         return inp - args[0]
 
     # str
-    elif proc_name == "str":
+    elif op_name == "str":
         assert len(args) == 0 or len(args) == 1
         arg = inp if len(args) == 0 else args[0]
         assert type(arg) in [str, int, float, bool]
         if type(arg) is bool:
             return str(arg).lower()
         return str(arg)
-    elif proc_name == "trim":
+    elif op_name == "trim":
         assert len(args) == 0
         assert type(inp) is str
         return inp.strip()
-    elif proc_name == "rmPrefix":
+    elif op_name == "rmPrefix":
         assert len(args) == 1
         assert type(args[0]) is str
         assert type(inp) is str
         return inp.removeprefix(args[0])
-    elif proc_name == "rmSuffix":
+    elif op_name == "rmSuffix":
         assert len(args) == 1
         assert type(args[0]) is str
         assert type(inp) is str
         return inp.removesuffix(args[0])
-    elif proc_name == "join":
+    elif op_name == "join":
         assert len(args) == 0 or len(args) == 1
         sep = "" if len(args) == 0 else args[0]
         assert type(sep) is str
@@ -186,16 +198,16 @@ def evaluate_expr(expr: Expr, inp: Value) -> Value:
         return sep.join(inp)  # type: ignore
 
     # list
-    elif proc_name == "list":
+    elif op_name == "list":
         return args
-    elif proc_name == "index":
+    elif op_name == "index":
         assert len(args) == 1
         index = args[0]
         assert type(index) is int
         assert type(inp) is list
         assert index >= -len(inp) and index < len(inp)
         return inp[index]
-    elif proc_name == "slice":
+    elif op_name == "slice":
         assert len(args) == 1 or len(args) == 2
         assert type(inp) is list
         if len(args) == 1:
@@ -212,7 +224,7 @@ def evaluate_expr(expr: Expr, inp: Value) -> Value:
             return []
         else:
             return inp[start:end]
-    elif proc_name == "flatten":
+    elif op_name == "flatten":
         assert len(args) == 0
         assert type(inp) is list
         result = []
@@ -220,7 +232,7 @@ def evaluate_expr(expr: Expr, inp: Value) -> Value:
             assert type(item) is list
             result += item
         return result
-    elif proc_name == "range":
+    elif op_name == "range":
         assert len(args) == 1 or len(args) == 2
         if len(args) == 1:
             start = 0
@@ -231,11 +243,11 @@ def evaluate_expr(expr: Expr, inp: Value) -> Value:
         assert type(start) is int
         assert type(end) is int
         return list(range(start, end))
-    elif proc_name == "count":
+    elif op_name == "count":
         assert len(args) == 0
         assert type(inp) is list
         return len(inp)
-    elif proc_name == "sum":
+    elif op_name == "sum":
         assert len(args) == 0
         assert type(inp) is list
         total = 0
@@ -243,7 +255,7 @@ def evaluate_expr(expr: Expr, inp: Value) -> Value:
             assert type(item) is int or type(item) is float
             total += item
         return total
-    elif proc_name == "mean":
+    elif op_name == "mean":
         assert len(args) == 0
         assert type(inp) is list
         if len(inp) == 0:
@@ -253,7 +265,7 @@ def evaluate_expr(expr: Expr, inp: Value) -> Value:
             assert type(item) is int or type(item) is float
             total += item
         return total / len(inp)
-    elif proc_name == "list.stream":
+    elif op_name == "list.stream":
         assert len(args) == 0
         assert type(inp) is list
 
@@ -264,7 +276,7 @@ def evaluate_expr(expr: Expr, inp: Value) -> Value:
         return list_stream()
 
     # record
-    elif proc_name == "field":
+    elif op_name == "field":
         assert len(args) == 1
         assert type(args[0]) is str
         assert type(inp) is dict
@@ -272,7 +284,7 @@ def evaluate_expr(expr: Expr, inp: Value) -> Value:
         return inp[args[0]]
 
     # file
-    elif proc_name == "file.read":
+    elif op_name == "file.read":
         assert len(args) == 0 or len(args) == 1
         arg = inp if len(args) == 0 else args[0]
         assert type(arg) is str
@@ -280,7 +292,7 @@ def evaluate_expr(expr: Expr, inp: Value) -> Value:
             return f.read()
 
     # http
-    elif proc_name == "http.fetch":
+    elif op_name == "http.fetch":
         assert len(args) == 0 or len(args) == 1
         arg = inp if len(args) == 0 else args[0]
         assert type(arg) is str
@@ -295,7 +307,7 @@ def evaluate_expr(expr: Expr, inp: Value) -> Value:
         return response.text
 
     # stream
-    elif proc_name == "stream.interval":
+    elif op_name == "stream.interval":
         assert len(args) == 1
         arg = args[0]
         assert type(arg) is int or type(arg) is float
@@ -310,7 +322,7 @@ def evaluate_expr(expr: Expr, inp: Value) -> Value:
                 prev = time.time()
 
         return interval(arg)
-    elif proc_name == "stream.limit":
+    elif op_name == "stream.limit":
         assert len(args) == 1
         arg = args[0]
         assert type(arg) is int
@@ -328,32 +340,32 @@ def evaluate_expr(expr: Expr, inp: Value) -> Value:
         return limit(arg)
 
     # json
-    elif proc_name == "json":
+    elif op_name == "json":
         assert len(args) == 0 or len(args) == 1
         arg = inp if len(args) == 0 else args[0]
         assert type(arg) is str
         return json.loads(arg)
-    elif proc_name == "json.pretty":
+    elif op_name == "json.pretty":
         assert len(args) == 0 or len(args) == 1
         arg = inp if len(args) == 0 else args[0]
         return json.dumps(arg, indent=2)
 
     # html
-    elif proc_name == "html":
+    elif op_name == "html":
         assert len(args) == 0
         assert type(inp) is str
         return bs4.BeautifulSoup(inp, "html.parser")
-    elif proc_name == "html.select":
+    elif op_name == "html.select":
         assert len(args) == 1
         assert type(args[0]) is str
         assert isinstance(inp, bs4.Tag)
         return list(inp.select(args[0]))
-    elif proc_name == "html.text":
+    elif op_name == "html.text":
         assert len(args) == 0
         assert isinstance(inp, bs4.Tag)
         return inp.text
 
-    raise Exception(f"unknown procedure: {proc_name}")
+    raise Exception(f"unknown operation: {op_name}")
 
 
 def evaluate_chain(exprs: list[Expr], inp: Value) -> Value:

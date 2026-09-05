@@ -14,6 +14,7 @@ from prompt_toolkit.layout import (
 )
 
 import duq
+from duq._preview import Preview
 
 
 def run_tui():
@@ -24,6 +25,8 @@ def run_tui():
     except:
         state = {"source": ""}
 
+    preview = Preview()
+
     key_bindings = KeyBindings()
 
     @key_bindings.add("c-c")
@@ -32,21 +35,28 @@ def run_tui():
 
     def on_source_changed(source_buffer: Buffer) -> None:
         source = source_buffer.text
-        try:
-            output = json.dumps(duq.evaluate(source), indent=2)
-        except Exception as e:
-            output = f"Error: {e}"
-        output_buffer.text = output
+
+        preview.set_source(source)
+        output_buffer.text = preview.get_output()
 
         state["source"] = source
         with open(state_file, "w") as f:
             json.dump(state, f, indent=2)
 
-    source_buffer = Buffer(on_text_changed=on_source_changed)
+    def on_cursor_position_changed(source_buffer: Buffer) -> None:
+        preview.set_cursor_position(source_buffer.cursor_position)
+        output_buffer.text = preview.get_output()
+
+    source_buffer = Buffer(
+        on_text_changed=on_source_changed,
+        on_cursor_position_changed=on_cursor_position_changed,
+    )
     output_buffer = Buffer()
 
     source_buffer.text = state["source"]
     source_buffer.cursor_position = len(source_buffer.text)
+
+    output_buffer.text = preview.get_output()
 
     split = HSplit(
         [
