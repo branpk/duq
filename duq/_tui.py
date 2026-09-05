@@ -25,8 +25,6 @@ def run_tui():
     except:
         state = {"source": ""}
 
-    preview = Preview()
-
     key_bindings = KeyBindings()
 
     @key_bindings.add("c-c")
@@ -85,30 +83,31 @@ def run_tui():
         define_brace_handlers(brace_pair)
 
     def on_source_changed(source_buffer: Buffer) -> None:
-        source = source_buffer.text
-
-        preview.set_source(source)
-        output_buffer.text, error_buffer.text = preview.get_output()
-
-        state["source"] = source
+        preview.set_source(source_buffer.text)
+        state["source"] = source_buffer.text
         with open(state_file, "w") as f:
             json.dump(state, f, indent=2)
 
     def on_cursor_position_changed(source_buffer: Buffer) -> None:
         preview.set_cursor_position(source_buffer.cursor_position)
-        output_buffer.text, error_buffer.text = preview.get_output()
+
+    output_buffer = Buffer()
+    error_buffer = Buffer()
+
+    def set_output(text: str) -> None:
+        output_buffer.text = text
+
+    def set_error(text: str) -> None:
+        error_buffer.text = text
+
+    preview = Preview(set_output=set_output, set_error=set_error)
 
     source_buffer = Buffer(
         on_text_changed=on_source_changed,
         on_cursor_position_changed=on_cursor_position_changed,
     )
-    output_buffer = Buffer()
-    error_buffer = Buffer()
-
     source_buffer.text = state["source"]
     source_buffer.cursor_position = len(source_buffer.text)
-
-    output_buffer.text, error_buffer.text = preview.get_output()
 
     split = HSplit(
         [

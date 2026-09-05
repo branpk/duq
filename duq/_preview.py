@@ -1,6 +1,9 @@
 from dataclasses import dataclass
 import dataclasses
 import json
+from typing import AsyncIterator, Awaitable, Callable
+
+import bs4
 
 from duq._evaluation import evaluate, Value, evaluate_chain
 from duq._syntax import Expr, ExprList, OpExpr, get_token_value, parse
@@ -28,24 +31,49 @@ def truncate_expr_list(expr_list: ExprList, cursor_position: int) -> ExprList:
     )
 
 
+def render_value(value: Value) -> str:
+    if isinstance(value, Awaitable):
+        return "<future>"
+    elif isinstance(value, AsyncIterator):
+        return "<stream>"
+    elif isinstance(value, bs4.Tag):
+        return "<html>"
+    else:
+        return json.dumps(value, indent=2)
+
+
 class Preview:
-    def __init__(self) -> None:
+    def __init__(
+        self, set_output: Callable[[str], None], set_error: Callable[[str], None]
+    ) -> None:
         self.source = ""
         self.cursor_position = 0
-        self.prev_output = "null"
+        self.current_value = None
+        self.set_output = set_output
+        self.set_error = set_error
+
+        set_output("null")
+        set_error("")
 
     def set_source(self, source: str) -> None:
         self.source = source
+        self.refresh()
 
     def set_cursor_position(self, cursor_position: int) -> None:
         self.cursor_position = cursor_position
+        self.refresh()
 
-    def get_output(self) -> tuple[str, str]:
+    def refresh(self) -> None:
         try:
             expr_list = parse(self.source)
             truncated = truncate_expr_list(expr_list, self.cursor_position)
-            result = evaluate_chain(truncated.exprs, None)
-            self.prev_output = json.dumps(result, indent=2)
-            return (self.prev_output, "")
+            self.current_value = evaluate_chain(truncated.exprs, None)
+            error = ""
         except Exception as e:
-            return (self.prev_output, f"Error: {e}")
+            error = f"Error: {e}"
+
+        output = render_value(self.current_value)
+        error = ""
+
+        self.set_output(output)
+        self.set_error(error)
