@@ -32,6 +32,7 @@ class Preview:
     def __init__(self) -> None:
         self.source = ""
         self.cursor_position = 0
+        self.prev_output = "null"
 
     def set_source(self, source: str) -> None:
         self.source = source
@@ -39,11 +40,12 @@ class Preview:
     def set_cursor_position(self, cursor_position: int) -> None:
         self.cursor_position = cursor_position
 
-    def get_output(self) -> str:
+    def get_output(self) -> tuple[str, str]:
         try:
             expr_list = parse(self.source)
             truncated = truncate_expr_list(expr_list, self.cursor_position)
             result = evaluate_chain(truncated.exprs, None)
-            return json.dumps(result, indent=2)
+            self.prev_output = json.dumps(result, indent=2)
+            return (self.prev_output, "")
         except Exception as e:
-            return f"Error: {e}"
+            return (self.prev_output, f"Error: {e}")

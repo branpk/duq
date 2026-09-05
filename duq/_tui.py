@@ -3,6 +3,7 @@ from pathlib import Path
 
 from prompt_toolkit import Application
 from prompt_toolkit.buffer import Buffer
+from prompt_toolkit.filters import Condition
 from prompt_toolkit.key_binding import KeyBindings, KeyPressEvent
 from prompt_toolkit.layout import (
     BufferControl,
@@ -30,14 +31,33 @@ def run_tui():
 
     @key_bindings.add("c-c")
     @key_bindings.add("c-d")
-    def exit_(event: KeyPressEvent) -> None:
+    def _(event: KeyPressEvent) -> None:
         event.app.exit()
+
+    @Condition
+    def is_in_empty_braces() -> bool:
+        text = source_buffer.text
+        pos = source_buffer.cursor_position
+        if pos <= 0 or pos >= len(text):
+            return False
+        pair = text[pos - 1 : pos + 1]
+        return pair == "()"
+
+    @key_bindings.add("backspace", filter=is_in_empty_braces)
+    def _(event: KeyPressEvent) -> None:
+        event.current_buffer.cursor_right()
+        event.current_buffer.delete_before_cursor(2)
+
+    @key_bindings.add("(")
+    def _(event: KeyPressEvent) -> None:
+        event.current_buffer.insert_text("()")
+        event.current_buffer.cursor_left()
 
     def on_source_changed(source_buffer: Buffer) -> None:
         source = source_buffer.text
 
         preview.set_source(source)
-        output_buffer.text = preview.get_output()
+        output_buffer.text, error_buffer.text = preview.get_output()
 
         state["source"] = source
         with open(state_file, "w") as f:
@@ -45,18 +65,19 @@ def run_tui():
 
     def on_cursor_position_changed(source_buffer: Buffer) -> None:
         preview.set_cursor_position(source_buffer.cursor_position)
-        output_buffer.text = preview.get_output()
+        output_buffer.text, error_buffer.text = preview.get_output()
 
     source_buffer = Buffer(
         on_text_changed=on_source_changed,
         on_cursor_position_changed=on_cursor_position_changed,
     )
     output_buffer = Buffer()
+    error_buffer = Buffer()
 
     source_buffer.text = state["source"]
     source_buffer.cursor_position = len(source_buffer.text)
 
-    output_buffer.text = preview.get_output()
+    output_buffer.text, error_buffer.text = preview.get_output()
 
     split = HSplit(
         [
@@ -65,7 +86,16 @@ def run_tui():
                 left_margins=[NumberedMargin()],
                 dont_extend_height=True,
             ),
-            Window(BufferControl(output_buffer), left_margins=[NumberedMargin()]),
+            Window(
+                BufferControl(output_buffer),
+                left_margins=[NumberedMargin()],
+                dont_extend_height=True,
+            ),
+            Window(
+                BufferControl(error_buffer),
+                left_margins=[],
+                dont_extend_height=True,
+            ),
         ],
         padding=1,
         padding_char="\u2500",
