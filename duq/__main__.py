@@ -3,6 +3,10 @@ import sys
 
 import duq
 
+if len(sys.argv) == 1:
+    duq.run_tui()
+    sys.exit(0)
+
 if len(sys.argv) != 2:
     print("Usage: duq '<source>'", file=sys.stderr)
     sys.exit(1)
