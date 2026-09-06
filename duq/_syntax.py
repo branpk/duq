@@ -66,6 +66,8 @@ def lex(s: str) -> list[Token]:
             kind = "null"
         elif match := re.match(r"true\b|false\b", s):
             kind = "bool"
+        elif match := re.match(r"\.?[\w_][\w\d_]*(\.[\w_][\w\d_]*)*", s):
+            kind = "symbol"
         elif match := re.match(r"[-+]?[\d\.](e[-+]?|[\.\w\d_])*", s):
             if "." in match.group() or "e" in match.group():
                 kind = "float"
@@ -73,8 +75,6 @@ def lex(s: str) -> list[Token]:
                 kind = "int"
         elif match := re.match(r"\"(\\\"|[^\"])*\"|\'(\\\'|[^\'])*\'", s):
             kind = "str"
-        elif match := re.match(r"[\w_][\w\d_]*(\.[\w_][\w\d_]*)*", s):
-            kind = "symbol"
         elif match := re.match(r"\(", s):
             kind = "("
         elif match := re.match(r"\)", s):
@@ -142,7 +142,11 @@ def parse_op_expr(tokens: list[Token]) -> OpExpr:
 
 
 def parse_expr(tokens: list[Token]) -> Expr:
-    if tokens[0].kind == "symbol" or tokens[0].kind == "{":
+    if (
+        tokens[0].kind == "symbol"
+        or tokens[0].kind == "dotSymbol"
+        or tokens[0].kind == "{"
+    ):
         return parse_op_expr(tokens)
     else:
         return parse_literal_expr(tokens)

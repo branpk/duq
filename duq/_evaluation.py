@@ -339,6 +339,12 @@ def evaluate_expr(expr: Expr, inp: Value) -> Value:
         assert type(inp) is dict
         assert args[0] in inp
         return inp[args[0]]
+    elif op_name.startswith("."):
+        assert len(args) == 0
+        key = op_name[1:]
+        assert type(inp) is dict
+        assert key in inp
+        return inp[key]
 
     # file
     elif op_name == "file.read":
