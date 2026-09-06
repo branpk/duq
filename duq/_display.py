@@ -3,7 +3,7 @@ from typing import AsyncIterator, Awaitable, assert_never
 
 import bs4
 
-from duq._evaluation import Value
+from duq._evaluation import Hinted, Value
 
 
 async def print_value_async(value: Value) -> None:
@@ -26,6 +26,8 @@ def print_value(value: Value) -> None:
         raise Exception("use print_value_async for future")
     elif isinstance(value, AsyncIterator):
         raise Exception("use print_value_async for stream")
+    elif isinstance(value, Hinted):
+        print_value(value.value)
     elif isinstance(value, bs4.Tag):
         print(value.prettify())
     else:

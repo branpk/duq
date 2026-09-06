@@ -1,4 +1,5 @@
 import asyncio
+from dataclasses import dataclass
 from datetime import datetime
 import json
 import time
@@ -8,6 +9,13 @@ import bs4
 import httpx
 
 from duq._syntax import parse, Expr
+
+
+@dataclass
+class Hinted[T]:
+    hint: str
+    value: T
+
 
 type Value = (
     None
@@ -19,6 +27,7 @@ type Value = (
     | dict[str, Value]
     | Awaitable[Value]
     | AsyncIterator[Value]
+    | Hinted[Value]
     | bs4.Tag
 )
 
@@ -26,6 +35,9 @@ type Value = (
 def evaluate_expr(expr: Expr, inp: Value) -> Value:
     if expr.type == "literal":
         return expr.value
+
+    while isinstance(inp, Hinted):
+        inp = inp.value
 
     op_name = expr.name.text
     raw_args: tuple[Expr, ...] = expr.arg_list.exprs if expr.arg_list else ()
@@ -129,7 +141,12 @@ def evaluate_expr(expr: Expr, inp: Value) -> Value:
 
     ## Functions
 
-    args = [evaluate_expr(arg, inp) for arg in raw_args]
+    args = []
+    for arg in raw_args:
+        arg = evaluate_expr(arg, inp)
+        while isinstance(arg, Hinted):
+            arg = arg.value
+        args.append(arg)
 
     # basic
     if op_name == "id":
@@ -143,6 +160,10 @@ def evaluate_expr(expr: Expr, inp: Value) -> Value:
     elif op_name == "time.now":
         assert len(args) == 0
         return datetime.now().isoformat(timespec="milliseconds") + "Z"
+    elif op_name == "hint":
+        assert len(args) == 1
+        assert type(args[0]) is str
+        return Hinted(args[0], inp)
 
     # number
     elif op_name == "float":

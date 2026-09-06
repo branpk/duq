@@ -1,10 +1,11 @@
 import json
 from pathlib import Path
 
-from prompt_toolkit import Application
+from prompt_toolkit import HTML, Application
 from prompt_toolkit.buffer import Buffer
 from prompt_toolkit.document import Document
 from prompt_toolkit.filters import Condition
+from prompt_toolkit.formatted_text import fragment_list_to_text, to_formatted_text
 from prompt_toolkit.key_binding import KeyBindings, KeyPressEvent
 from prompt_toolkit.layout import (
     BufferControl,
@@ -15,6 +16,7 @@ from prompt_toolkit.layout import (
     VSplit,
     Window,
 )
+from prompt_toolkit.layout.processors import Processor, Transformation
 
 from duq._preview import Preview
 
@@ -95,6 +97,12 @@ async def run_tui():
     def on_cursor_position_changed(source_buffer: Buffer) -> None:
         preview.set_cursor_position(source_buffer.cursor_position)
 
+    class FormatHTMLProcessor(Processor):
+        def apply_transformation(self, transformation_input):
+            raw_text = fragment_list_to_text(transformation_input.fragments)
+            formatted_fragments = to_formatted_text(HTML(raw_text))
+            return Transformation(formatted_fragments)
+
     output_buffer = Buffer(read_only=True)
     error_buffer = Buffer(read_only=True)
 
@@ -123,7 +131,7 @@ async def run_tui():
                 dont_extend_height=True,
             ),
             Window(
-                BufferControl(output_buffer),
+                BufferControl(output_buffer, input_processors=[FormatHTMLProcessor()]),
                 left_margins=[NumberedMargin()],
                 dont_extend_height=True,
                 height=Dimension(1, 40),

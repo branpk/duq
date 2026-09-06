@@ -60,7 +60,7 @@ def lex(s: str) -> list[Token]:
             kind = "whitespace"
         elif match := re.match(r"#.*", s):
             kind = "comment"
-        elif match := re.match("null\b", s):
+        elif match := re.match(r"null\b", s):
             kind = "null"
         elif match := re.match(r"true\b|false\b", s):
             kind = "bool"
@@ -87,25 +87,6 @@ def lex(s: str) -> list[Token]:
         i += match.end()
     tokens.append(Token(kind="eof", span=(i, i), text="<eof>"))
     return tokens
-
-
-def get_token_value(
-    token: Token,
-) -> None | int | float | str | bool | Literal["trivia", "symbol", "(", ")"]:
-    if token.kind == "whitespace" or token.kind == "comment":
-        return "trivia"
-    elif token.kind == "null":
-        return None
-    elif token.kind == "bool":
-        return token.text == "true"
-    elif token.kind == "int":
-        return int(token.text, base=0)
-    elif token.kind == "float":
-        return float(token.text)
-    elif token.kind == "str":
-        return eval(token.text)
-    else:
-        return token.kind
 
 
 def parse_literal_expr(tokens: list[Token]) -> LiteralExpr:

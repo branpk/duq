@@ -1,40 +1,60 @@
 import asyncio
+import html
 import json
 import re
 from typing import AsyncIterator, Awaitable, Callable, Iterable
 
 import bs4
 
-from duq._evaluation import evaluate, Value, evaluate_chain
-from duq._syntax import Expr, ExprList, OpExpr, get_token_value, parse
+from duq._evaluation import Hinted, evaluate, Value, evaluate_chain
+from duq._syntax import Expr, ExprList, OpExpr, parse
 from duq._util import Reactive
 
 
-def truncate_expr(expr: Expr, cursor_position: int) -> Expr | None:
-    if cursor_position <= expr.span[0]:
-        return None
+def truncate_expr(expr: Expr, cursor_position: int) -> tuple[Expr, bool]:
     if expr.type == "literal" or expr.arg_list is None:
-        return expr
-    arg_list = expr.arg_list
-    if cursor_position >= arg_list.span[0] and cursor_position < arg_list.span[1]:
-        arg_list = truncate_expr_list(arg_list, cursor_position)
-    return OpExpr(type=expr.type, span=expr.span, name=expr.name, arg_list=arg_list)
-
-
-def truncate_expr_list(expr_list: ExprList, cursor_position: int) -> ExprList:
-    return ExprList(
-        span=expr_list.span,
-        exprs=tuple(
-            expr1
-            for expr in expr_list.exprs
-            if (expr1 := truncate_expr(expr, cursor_position))
-        ),
+        return expr, False
+    arg_list, cursor_hint = expr.arg_list, False
+    if cursor_position >= arg_list.span[0] and cursor_position <= arg_list.span[1]:
+        is_chain = expr.name.text in [
+            "do",
+            "map",
+            "mapValues",
+            "future.map",
+            "stream.map",
+        ]
+        arg_list, cursor_hint = (
+            truncate_expr_list(arg_list, is_chain, cursor_position),
+            is_chain,
+        )
+    return (
+        OpExpr(type=expr.type, span=expr.span, name=expr.name, arg_list=arg_list),
+        cursor_hint,
     )
+
+
+def truncate_expr_list(
+    expr_list: ExprList, is_chain: bool, cursor_position: int
+) -> ExprList:
+    exprs: list[Expr] = []
+    nested_cursor_hint = False
+    for expr in expr_list.exprs:
+        if expr.span[0] >= cursor_position:
+            break
+        expr, cursor_hint = truncate_expr(expr, cursor_position)
+        exprs.append(expr)
+        nested_cursor_hint |= cursor_hint
+    if is_chain and not nested_cursor_hint:
+        exprs.append(parse("hint('cursor')").exprs[0])
+    return ExprList(span=expr_list.span, exprs=tuple(exprs))
 
 
 def render_items(
     start: str, end: str, items: Iterable[str], indent: int, sep=","
 ) -> str:
+    start = html.escape(start)
+    end = html.escape(end)
+    sep = html.escape(sep)
     indent_str = " " * indent
     if not items:
         return start + end
@@ -43,14 +63,14 @@ def render_items(
     else:
         result = start
         for item in items:
-            result += "\n" + indent_str + "  " + item + sep
-        result += "\n" + indent_str + end
+            result += html.escape("\n") + indent_str + "  " + item + sep
+        result += html.escape("\n") + indent_str + end
         return result
 
 
 def render_value(value: Value, indent=0) -> Reactive[str]:
     if value is None or isinstance(value, (int, float, str, bool)):
-        return Reactive.of(json.dumps(value))
+        return Reactive.of(html.escape(json.dumps(value)))
     elif isinstance(value, list):
         child_strs_rx = Reactive.from_list(
             [render_value(child, indent + 2) for child in value]
@@ -61,7 +81,9 @@ def render_value(value: Value, indent=0) -> Reactive[str]:
     elif isinstance(value, dict):
         child_strs_rx = Reactive.from_list(
             [
-                render_value(child, indent + 2).map(lambda s: f"{json.dumps(key)}: {s}")
+                render_value(child, indent + 2).map(
+                    lambda s: f"{html.escape(json.dumps(key))}: {s}"
+                )
                 for key, child in value.items()
             ]
         )
@@ -94,9 +116,23 @@ def render_value(value: Value, indent=0) -> Reactive[str]:
                 indent,
             )
         )
+    elif isinstance(value, Hinted):
+        child_rx = render_value(value.value, indent)
+        if value.hint == "cursor":
+
+            def bold(s: str) -> str:
+                lines = s.split("\n")
+                lines = [f"<green>{line}</green>" for line in lines]
+                return "\n".join(lines)
+
+            return child_rx.map(bold)
+        else:
+            return child_rx
     elif isinstance(value, bs4.Tag):
         return Reactive.of(
-            re.sub(r"^(\s*)", r"\1\1", value.prettify(), flags=re.MULTILINE)
+            html.escape(
+                re.sub(r"^(\s*)", r"\1\1", value.prettify(), flags=re.MULTILINE)
+            )
         )
 
 
@@ -124,7 +160,7 @@ class Preview:
     def refresh(self) -> None:
         try:
             expr_list = parse(self.source)
-            truncated = truncate_expr_list(expr_list, self.cursor_position)
+            truncated = truncate_expr_list(expr_list, True, self.cursor_position)
             result = evaluate_chain(truncated.exprs, None)
         except Exception as e:
             self.set_error(f"Error: {e}")
