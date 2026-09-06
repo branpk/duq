@@ -42,6 +42,16 @@ def evaluate_expr(expr: Expr, inp: Value) -> Value:
     op_name = expr.name.text
     raw_args: tuple[Expr, ...] = expr.arg_list.exprs if expr.arg_list else ()
 
+    if op_name == "{":
+        if type(inp) is list:
+            op_name = "map"
+        elif type(inp) is dict:
+            op_name = "mapValues"
+        elif isinstance(inp, Awaitable):
+            op_name = "future.map"
+        elif isinstance(inp, AsyncIterator):
+            op_name = "stream.map"
+
     ## Macros
 
     # basic

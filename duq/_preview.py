@@ -22,6 +22,7 @@ def truncate_expr(expr: Expr, cursor_position: int) -> tuple[Expr, bool]:
             "mapValues",
             "future.map",
             "stream.map",
+            "{",
         ]
         arg_list, cursor_hint = (
             truncate_expr_list(arg_list, is_chain, cursor_position),

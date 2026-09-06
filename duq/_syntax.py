@@ -16,6 +16,8 @@ type TokenKind = Literal[
     "symbol",
     "(",
     ")",
+    "{",
+    "}",
 ]
 
 
@@ -77,6 +79,10 @@ def lex(s: str) -> list[Token]:
             kind = "("
         elif match := re.match(r"\)", s):
             kind = ")"
+        elif match := re.match(r"\{", s):
+            kind = "{"
+        elif match := re.match(r"\}", s):
+            kind = "}"
         else:
             raise Exception(f"failed to tokenize: {repr(s)}")
 
@@ -108,6 +114,16 @@ def parse_literal_expr(tokens: list[Token]) -> LiteralExpr:
 
 def parse_op_expr(tokens: list[Token]) -> OpExpr:
     head = tokens.pop(0)
+
+    if head.kind == "{":
+        arg_list = parse_expr_list(tokens)
+        rbrace = tokens.pop(0)
+        if rbrace.kind != "}":
+            raise Exception(f"expected `}}`, found `{head.text}`")
+        return OpExpr(
+            type="op", span=(head.span[0], rbrace.span[1]), name=head, arg_list=arg_list
+        )
+
     if head.kind != "symbol":
         raise Exception(f"expected operation, found `{head.text}`")
     while tokens[0].kind == "whitespace" or tokens[0].kind == "comment":
@@ -126,7 +142,7 @@ def parse_op_expr(tokens: list[Token]) -> OpExpr:
 
 
 def parse_expr(tokens: list[Token]) -> Expr:
-    if tokens[0].kind == "symbol":
+    if tokens[0].kind == "symbol" or tokens[0].kind == "{":
         return parse_op_expr(tokens)
     else:
         return parse_literal_expr(tokens)
@@ -135,7 +151,7 @@ def parse_expr(tokens: list[Token]) -> Expr:
 def parse_expr_list(tokens: list[Token]) -> ExprList:
     start = tokens[0].span[0]
     exprs: list[Expr] = []
-    while tokens[0].kind != ")" and tokens[0].kind != "eof":
+    while tokens[0].kind != ")" and tokens[0].kind != "}" and tokens[0].kind != "eof":
         if tokens[0].kind == "whitespace" or tokens[0].kind == "comment":
             tokens.pop(0)
         else:
