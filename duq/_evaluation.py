@@ -154,8 +154,9 @@ def evaluate_expr(expr: Expr, inp: Value) -> Value:
         return inp
     elif op_name == "eq":
         assert len(args) == 1
-        assert type(args[0]) is type(inp)
-        assert type(inp) in [int, str]
+        value_types = [int, float, str, bool, list, dict]
+        assert args[0] is None or type(args[0]) in value_types
+        assert inp is None or type(inp) in value_types
         return inp == args[0]
     elif op_name == "time.now":
         assert len(args) == 0
@@ -164,6 +165,31 @@ def evaluate_expr(expr: Expr, inp: Value) -> Value:
         assert len(args) == 1
         assert type(args[0]) is str
         return Hinted(args[0], inp)
+    elif op_name == "tableToRecords":
+        assert len(args) == 0
+        assert type(inp) is list
+        assert len(inp) > 0
+        header_row = inp[0]
+        assert type(header_row) is list
+        assert all(type(cell) is str for cell in header_row)
+        rows = inp[1:]
+        result = []
+        for row in rows:
+            assert type(row) is list
+            record = {}
+            for i, header in enumerate(header_row):
+                record[header] = None if i >= len(row) else row[i]
+            result.append(record)
+        return result
+    elif op_name == "blank":
+        assert len(args) == 0
+        return inp is None or (type(inp) is str and inp.strip() == "")
+
+    # bool
+    elif op_name == "not":
+        assert len(args) == 0
+        assert type(inp) is bool
+        return not inp
 
     # number
     elif op_name == "float":
