@@ -146,9 +146,7 @@ class Preview:
         self.current_task: asyncio.Task | None = None
         self.set_output = set_output
         self.set_error = set_error
-
-        set_output("null")
-        set_error("")
+        self.refresh()
 
     def set_source(self, source: str) -> None:
         self.source = source
