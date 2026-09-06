@@ -1,13 +1,13 @@
 import asyncio
-from dataclasses import dataclass
-import dataclasses
 import json
+import re
 from typing import AsyncIterator, Awaitable, Callable, Iterable
 
 import bs4
 
 from duq._evaluation import evaluate, Value, evaluate_chain
 from duq._syntax import Expr, ExprList, OpExpr, get_token_value, parse
+from duq._util import Reactive
 
 
 def truncate_expr(expr: Expr, cursor_position: int) -> Expr | None:
@@ -32,15 +32,6 @@ def truncate_expr_list(expr_list: ExprList, cursor_position: int) -> ExprList:
     )
 
 
-# type Value = (
-#     | list[Value]
-#     | dict[str, Value]
-#     | Awaitable[Value]
-#     | AsyncIterator[Value]
-#     | bs4.Tag
-# )
-
-
 def render_items(
     start: str, end: str, items: Iterable[str], indent: int, sep=","
 ) -> str:
@@ -57,73 +48,56 @@ def render_items(
         return result
 
 
-def render_value_sync(value: Value, indent=0) -> str:
+def render_value(value: Value, indent=0) -> Reactive[str]:
     if value is None or isinstance(value, (int, float, str, bool)):
-        return json.dumps(value)
+        return Reactive.of(json.dumps(value))
     elif isinstance(value, list):
-        return render_items(
-            "[",
-            "]",
-            [render_value_sync(item, indent + 2) for item in value],
-            indent,
+        child_strs_rx = Reactive.from_list(
+            [render_value(child, indent + 2) for child in value]
+        )
+        return child_strs_rx.map(
+            lambda child_strs: render_items("[", "]", child_strs, indent)
         )
     elif isinstance(value, dict):
-        return render_items(
-            "{",
-            "}",
+        child_strs_rx = Reactive.from_list(
             [
-                json.dumps(key) + ": " + render_value_sync(value, indent + 2)
-                for key, value in value.items()
-            ],
-            indent,
+                render_value(child, indent + 2).map(lambda s: f"{json.dumps(key)}: {s}")
+                for key, child in value.items()
+            ]
+        )
+        return child_strs_rx.map(
+            lambda child_strs: render_items("{", "}", child_strs, indent)
         )
     elif isinstance(value, Awaitable):
-        return "<future>"
+        return Reactive.from_awaitable(value).flat_map(
+            lambda child_maybe: (
+                render_value(child_maybe.value, indent + 2)
+                if child_maybe.is_some
+                else Reactive.of("...")
+            ).map(
+                lambda child_str: render_items(
+                    "future(", ")", [child_str], indent, sep=""
+                )
+            )
+        )
     elif isinstance(value, AsyncIterator):
-        return "<stream>"
+
+        async def child_strs_iter() -> AsyncIterator[Reactive[str]]:
+            async for child in value:
+                yield render_value(child, indent + 2)
+
+        return Reactive.collect_from_iter(child_strs_iter()).map(
+            lambda child_strs: render_items(
+                "stream[",
+                "]",
+                child_strs.items + ([] if child_strs.is_done else ["..."]),
+                indent,
+            )
+        )
     elif isinstance(value, bs4.Tag):
-        return "<html>"
-
-
-async def render_value(value: Value, indent=0) -> AsyncIterator[str]:
-    if value is None or isinstance(value, (int, float, str, bool)):
-        yield json.dumps(value)
-    elif isinstance(value, list):
-        items = ["..."] * len(value)
-        yield render_items("[", "]", items, indent)
-
-        queue = asyncio.Queue[None]()
-
-        async def item_coroutine(i: int):
-            async for output in render_value(value[i], indent + 2):
-                items[i] = output
-                await queue.put(None)
-
-        async with asyncio.TaskGroup() as task_group:
-            for i in range(len(value)):
-                task_group.create_task(item_coroutine(i))
-
-            while True:
-                await queue.get()
-                yield render_items("[", "]", items, indent)
-    elif isinstance(value, Awaitable):
-        yield render_items("future(", ")", ["..."], indent, sep="")
-        try:
-            result = await value
-        except Exception as e:
-            yield render_items("future(", ")", [f"Error: {e}"], indent, sep="")
-        else:
-            async for output in render_value(result, indent + 2):
-                yield render_items("future(", ")", [output], indent, sep="")
-    elif isinstance(value, AsyncIterator):
-        items: list[str] = []
-        yield render_items("stream[", "]", ["..."], indent)
-        async for item in value:
-            items.append(render_value_sync(item, indent + 2))
-            yield render_items("stream[", "]", items + ["..."], indent)
-        yield render_items("stream[", "]", items, indent)
-    else:
-        yield render_value_sync(value, indent)
+        return Reactive.of(
+            re.sub(r"^(\s*)", r"\1\1", value.prettify(), flags=re.MULTILINE)
+        )
 
 
 class Preview:
@@ -157,8 +131,15 @@ class Preview:
         else:
 
             async def set_output_task():
-                async for output in render_value(result):
-                    self.set_output(output)
+                try:
+                    output_rx = render_value(result)
+                    self.set_output(output_rx.initial)
+                    async for output in output_rx.updates:
+                        self.set_output(output)
+                except Exception as e:
+                    while isinstance(e, ExceptionGroup):
+                        e = e.exceptions[0]
+                    self.set_error(f"Error: {e}")
 
             if self.current_task != None:
                 self.current_task.cancel()
