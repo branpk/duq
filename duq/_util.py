@@ -2,12 +2,17 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass
-from typing import AsyncIterator, Awaitable, Callable, Literal, TypedDict
+from typing import AsyncIterable, AsyncIterator, Awaitable, Callable, Literal
 
 
 @dataclass
-class IntoAwaitable[T]:
+class DuqFuture[T]:
     create: Callable[[], Awaitable[T]]
+
+
+@dataclass
+class DuqStream[T]:
+    create: Callable[[], AsyncIterable[T]]
 
 
 @dataclass

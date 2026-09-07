@@ -10,6 +10,7 @@ from duq._std import (
     _number,
     _record,
     _str,
+    _stream,
 )
 
 op_definitions = {
@@ -26,6 +27,7 @@ op_definitions = {
         _number.op_definitions,
         _record.op_definitions,
         _str.op_definitions,
+        _stream.op_definitions,
     ]
     for op_name, op_func in op_definitions.items()
 }

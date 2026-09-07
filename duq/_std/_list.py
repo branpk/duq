@@ -1,8 +1,9 @@
-from typing import Any
+from typing import Any, AsyncIterator
 
 from duq._evaluation_v2 import evaluate_chain
 from duq._syntax import Expr
 from duq._type_check import type_check_value
+from duq._util import DuqStream
 
 
 def op_map(input: list[Any], *args: Expr) -> list[Any]:
@@ -44,6 +45,14 @@ def op_keyBy(input: list[Any], *args: Expr) -> dict[str, Any]:
 
 def op_list(*args: Any) -> list[Any]:
     return list(args)
+
+
+def op_stream(input: list[Any]) -> DuqStream[Any]:
+    async def stream() -> AsyncIterator[Any]:
+        for element in input:
+            yield element
+
+    return DuqStream(stream)
 
 
 def op_index(input: list[Any], index: int) -> Any:
@@ -98,6 +107,7 @@ op_definitions = {
     "std.list.groupBy": op_groupBy,
     "std.list.keyBy": op_keyBy,
     "std.list.list": op_list,
+    "std.list.stream": op_stream,
     "std.list.index": op_index,
     "std.list.slice": op_slice,
     "std.list.flatten": op_flatten,

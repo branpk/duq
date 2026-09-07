@@ -8,7 +8,7 @@ import bs4
 
 from duq._evaluation_v2 import Hinted, evaluate_chain
 from duq._syntax import Expr, ExprList, OpExpr, parse
-from duq._util import IntoAwaitable, Reactive
+from duq._util import DuqFuture, DuqStream, Reactive
 
 
 def truncate_expr(expr: Expr, cursor_position: int) -> tuple[Expr, bool]:
@@ -104,7 +104,7 @@ def render_value(value: Any, indent=0) -> Reactive[str]:
                 )
             )
         )
-    elif isinstance(value, IntoAwaitable):
+    elif isinstance(value, DuqFuture):
         return render_value(value.create(), indent)
     elif isinstance(value, AsyncIterator):
 
@@ -120,6 +120,8 @@ def render_value(value: Any, indent=0) -> Reactive[str]:
                 indent,
             )
         )
+    elif isinstance(value, DuqStream):
+        return render_value(value.create(), indent)
     elif isinstance(value, Hinted):
         child_rx = render_value(value.value, indent)
         if value.hint == "cursor":
