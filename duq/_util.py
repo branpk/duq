@@ -6,6 +6,11 @@ from typing import AsyncIterator, Awaitable, Callable, Literal, TypedDict
 
 
 @dataclass
+class IntoAwaitable[T]:
+    create: Callable[[], Awaitable[T]]
+
+
+@dataclass
 class Maybe[T]:
     is_some: bool
     optional_value: T | None

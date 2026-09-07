@@ -8,7 +8,7 @@ import bs4
 
 from duq._evaluation_v2 import Hinted, evaluate_chain
 from duq._syntax import Expr, ExprList, OpExpr, parse
-from duq._util import Reactive
+from duq._util import IntoAwaitable, Reactive
 
 
 def truncate_expr(expr: Expr, cursor_position: int) -> tuple[Expr, bool]:
@@ -104,6 +104,8 @@ def render_value(value: Any, indent=0) -> Reactive[str]:
                 )
             )
         )
+    elif isinstance(value, IntoAwaitable):
+        return render_value(value.create(), indent)
     elif isinstance(value, AsyncIterator):
 
         async def child_strs_iter() -> AsyncIterator[Reactive[str]]:

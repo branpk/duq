@@ -61,6 +61,13 @@ def type_check_value(value: Any, annotation: Any) -> None:
             raise DuqTypeError(
                 f"expected type `{annotation}`, found type `{type(value).__name__}`"
             )
+    elif typing.get_origin(annotation) is not None:
+        for type_arg in typing.get_args(annotation):
+            if type_arg is not Any:
+                raise Exception(
+                    f"unimplement type annotation: `{annotation}` (type arguments must be Any)"
+                )
+        type_check_value(value, typing.get_origin(annotation))
     elif annotation is inspect._empty:
         raise Exception(f"missing type annotation")
     else:
