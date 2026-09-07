@@ -2,11 +2,11 @@ import asyncio
 import html
 import json
 import re
-from typing import AsyncIterator, Awaitable, Callable, Iterable
+from typing import Any, AsyncIterator, Awaitable, Callable, Iterable
 
 import bs4
 
-from duq._evaluation import Hinted, evaluate, Value, evaluate_chain
+from duq._evaluation_v2 import Hinted, evaluate_chain
 from duq._syntax import Expr, ExprList, OpExpr, parse
 from duq._util import Reactive
 
@@ -16,6 +16,7 @@ def truncate_expr(expr: Expr, cursor_position: int) -> tuple[Expr, bool]:
         return expr, False
     arg_list, cursor_hint = expr.arg_list, False
     if cursor_position >= arg_list.span[0] and cursor_position <= arg_list.span[1]:
+        # TODO: Better mechanism for this
         is_chain = expr.name.text in [
             "do",
             "map",
@@ -46,7 +47,7 @@ def truncate_expr_list(
         exprs.append(expr)
         nested_cursor_hint |= cursor_hint
     if is_chain and not nested_cursor_hint:
-        exprs.append(parse("hint('cursor')").exprs[0])
+        exprs.append(parse("std.basic.hint('cursor')").exprs[0])
     return ExprList(span=expr_list.span, exprs=tuple(exprs))
 
 
@@ -69,7 +70,7 @@ def render_items(
         return result
 
 
-def render_value(value: Value, indent=0) -> Reactive[str]:
+def render_value(value: Any, indent=0) -> Reactive[str]:
     if value is None or isinstance(value, (int, float, str, bool)):
         return Reactive.of(html.escape(json.dumps(value)))
     elif isinstance(value, list):
@@ -138,6 +139,8 @@ def render_value(value: Value, indent=0) -> Reactive[str]:
         ).removeprefix(indent * " ")
         output = re.sub(r"\s*$", "", indented)
         return Reactive.of(html.escape(output))
+    else:
+        raise Exception(f"unimplemented: {type(value)}")
 
 
 class Preview:
@@ -183,3 +186,15 @@ class Preview:
                 self.current_task.cancel()
             self.current_task = asyncio.create_task(set_output_task())
             self.set_error("")
+
+
+async def print_value_async(value: Any) -> None:
+    value_str_rx = render_value(value)
+    print(value_str_rx.initial)
+    async for value_str in value_str_rx.updates:
+        print(value_str)
+
+
+def print_value(value: Any) -> None:
+    value_str_rx = render_value(value)
+    print(value_str_rx.initial)

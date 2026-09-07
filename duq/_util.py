@@ -46,22 +46,31 @@ class Reactive[T]:
     @staticmethod
     def from_list[V](values: list[Reactive[V]]) -> Reactive[list[V]]:
         initial = [value.initial for value in values]
-        queue = asyncio.Queue[tuple[int, V]]()
+        queue = asyncio.Queue[tuple[int, V] | Literal["done"]]()
 
-        async def item_coroutine(i: int) -> None:
-            async for new_value in values[i].updates:
-                await queue.put((i, new_value))
+        async def put_all_values(i: int, values: AsyncIterator[V]) -> None:
+            async for value in values:
+                await queue.put((i, value))
+
+        async def add_all_items() -> None:
+            async with asyncio.TaskGroup() as task_group:
+                for i, value in enumerate(values):
+                    task_group.create_task(put_all_values(i, value.updates))
+            await queue.put("done")
 
         async def updates() -> AsyncIterator[list[V]]:
-            current = list(initial)
             async with asyncio.TaskGroup() as task_group:
-                for i in range(len(values)):
-                    task_group.create_task(item_coroutine(i))
+                task_group.create_task(add_all_items())
 
+                current = list(initial)
                 while True:
-                    i, new_value = await queue.get()
+                    message = await queue.get()
+                    if message == "done":
+                        break
+
+                    i, value = message
                     current = list(current)
-                    current[i] = new_value
+                    current[i] = value
                     yield current
 
         return Reactive(initial, updates())
