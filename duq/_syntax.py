@@ -66,9 +66,11 @@ def lex(s: str) -> list[Token]:
             kind = "null"
         elif match := re.match(r"true\b|false\b", s):
             kind = "bool"
-        elif match := re.match(r"\.?[\w_][\w\d_]*(\.[\w_][\w\d_]*)*", s):
+        elif match := re.match(
+            r"\.?[a-zA-Z_][a-zA-Z\d_]*(\.[a-zA-Z_][a-zA-Z\d_]*)*", s
+        ):
             kind = "symbol"
-        elif match := re.match(r"[-+]?[\d\.](e[-+]?|[\.\w\d_])*", s):
+        elif match := re.match(r"[-+]?[\d\.](e[-+]?|[\.a-fA-F\d_])*", s):
             if "." in match.group() or "e" in match.group():
                 kind = "float"
             else:

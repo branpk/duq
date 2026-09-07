@@ -4,12 +4,18 @@ import warnings
 
 import duq
 
-warnings.filterwarnings(
-    "ignore", message=".*was never awaited.*", category=RuntimeWarning
-)
-warnings.filterwarnings(
-    "ignore", message=".*invalid escape sequence.*", category=SyntaxWarning
-)
+
+def catch_warning(message, category, filename, lineno, file=None, line=None):
+    pass
+
+
+warnings.showwarning = catch_warning
+# warnings.filterwarnings(
+#     "ignore", message=".*was never awaited.*", category=RuntimeWarning
+# )
+# warnings.filterwarnings(
+#     "ignore", message=".*invalid escape sequence.*", category=SyntaxWarning
+# )
 
 if len(sys.argv) == 1:
     asyncio.run(duq.run_tui())

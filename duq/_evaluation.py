@@ -51,6 +51,8 @@ def evaluate_expr(expr: Expr, inp: Value) -> Value:
             op_name = "future.map"
         elif isinstance(inp, AsyncIterator):
             op_name = "stream.map"
+        else:
+            raise Exception(f"invalid type for `{{`: {type(inp)}")
 
     ## Macros
 

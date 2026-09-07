@@ -130,11 +130,14 @@ def render_value(value: Value, indent=0) -> Reactive[str]:
         else:
             return child_rx
     elif isinstance(value, bs4.Tag):
-        return Reactive.of(
-            html.escape(
-                re.sub(r"^(\s*)", r"\1\1", value.prettify(), flags=re.MULTILINE)
-            )
-        )
+        indented = re.sub(
+            r"^(\s*)",
+            (indent * " ") + r"\1\1",
+            value.prettify(),
+            flags=re.MULTILINE,
+        ).removeprefix(indent * " ")
+        output = re.sub(r"\s*$", "", indented)
+        return Reactive.of(html.escape(output))
 
 
 class Preview:
