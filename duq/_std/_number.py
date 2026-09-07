@@ -22,9 +22,9 @@ def op_str(input: int | float) -> str:
 
 
 op_definitions = {
-    "number.float": op_float,
-    "number.int": op_int,
-    "number.add": op_add,
-    "number.sub": op_sub,
-    "number.str": op_str,
+    "std.number.float": op_float,
+    "std.number.int": op_int,
+    "std.number.add": op_add,
+    "std.number.sub": op_sub,
+    "std.number.str": op_str,
 }

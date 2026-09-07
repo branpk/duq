@@ -19,9 +19,9 @@ def op_join(input: list[str], separator: str = "") -> str:
 
 
 op_definitions = {
-    "str.str": op_str,
-    "str.trim": op_trim,
-    "str.rmPrefix": op_rmPrefix,
-    "str.rmSuffix": op_rmSuffix,
-    "str.join": op_join,
+    "std.str.str": op_str,
+    "std.str.trim": op_trim,
+    "std.str.rmPrefix": op_rmPrefix,
+    "std.str.rmSuffix": op_rmSuffix,
+    "std.str.join": op_join,
 }

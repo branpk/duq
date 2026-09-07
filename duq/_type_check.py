@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 import inspect
 from inspect import Parameter
-from types import UnionType
+from types import NoneType, UnionType
 import typing
 from typing import Any, Callable
 
@@ -15,6 +15,9 @@ class DuqTypeError(Exception):
 def type_check_value(value: Any, annotation: Any) -> None:
     if annotation is Any:
         pass
+    elif annotation is NoneType or annotation is None:
+        if value is not None:
+            raise DuqTypeError(f"expected null, found type `{type(value).__name__}`")
     elif annotation is Expr:
         if type(value) not in [LiteralExpr, OpExpr]:
             raise DuqTypeError(
@@ -114,6 +117,22 @@ class OpSignature:
             opt_arg_params=opt_arg_params,
             var_args_param=var_args_param,
         )
+
+    def matches_name(self, name: str) -> bool:
+        name_parts = name.split(".")
+        return all(
+            part1 == part2
+            for part1, part2 in zip(reversed(self.name_parts), reversed(name_parts))
+        )
+
+    def matches_input(self, input: Any) -> bool:
+        if not self.input_param:
+            return True
+        try:
+            type_check_value(input, self.input_param.annotation)
+            return True
+        except DuqTypeError:
+            return False
 
     def type_check_inputs(self, input: Any, args: tuple[Any, ...]) -> None:
         if self.input_param:

@@ -42,17 +42,67 @@ def op_keyBy(input: list[Any], *args: Expr) -> dict[str, Any]:
     return result
 
 
-# TODO: tableToRecords
-
-
 def op_list(*args: Any) -> list[Any]:
     return list(args)
 
 
+def op_index(input: list[Any], index: int) -> Any:
+    if index < -len(input) or index >= len(input):
+        raise Exception(f"index out of range: {index}")
+    return input[index]
+
+
+def op_slice(input: list[Any], start: int, end: int | None = None) -> Any:
+    if end is None:
+        end = len(input)
+    start = max(start, 0)
+    end = min(end, len(input))
+    return input[start:end] if start < end else []
+
+
+def op_flatten(input: list[list[Any]]) -> list[Any]:
+    result = []
+    for element in input:
+        result += element
+    return result
+
+
+def op_range(a: int, b: int | None = None) -> list[int]:
+    if b is None:
+        return list(range(a))
+    else:
+        return list(range(a, b))
+
+
+def op_count(input: list[Any]) -> int:
+    return len(input)
+
+
+def op_sum(input: list[int | float]) -> int | float:
+    result = 0
+    for element in input:
+        result += element
+    return result
+
+
+def op_mean(input: list[int | float]) -> float:
+    if len(input) == 0:
+        return 0.0
+    total = op_sum(input)
+    return total / len(input)
+
+
 op_definitions = {
-    "list.map": op_map,
-    "list.filter": op_filter,
-    "list.groupBy": op_groupBy,
-    "list.keyBy": op_keyBy,
-    "list.list": op_list,
+    "std.list.map": op_map,
+    "std.list.filter": op_filter,
+    "std.list.groupBy": op_groupBy,
+    "std.list.keyBy": op_keyBy,
+    "std.list.list": op_list,
+    "std.list.index": op_index,
+    "std.list.slice": op_slice,
+    "std.list.flatten": op_flatten,
+    "std.list.range": op_range,
+    "std.list.count": op_count,
+    "std.list.sum": op_sum,
+    "std.list.mean": op_mean,
 }
