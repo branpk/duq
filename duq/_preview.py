@@ -190,11 +190,11 @@ class Preview:
 
 async def print_value_async(value: Any) -> None:
     value_str_rx = render_value(value)
-    print(value_str_rx.initial)
+    print(html.unescape(value_str_rx.initial))
     async for value_str in value_str_rx.updates:
-        print(value_str)
+        print(html.unescape(value_str))
 
 
 def print_value(value: Any) -> None:
     value_str_rx = render_value(value)
-    print(value_str_rx.initial)
+    print(html.unescape(value_str_rx.initial))

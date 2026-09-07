@@ -28,6 +28,11 @@ def type_check_value(value: Any, annotation: Any) -> None:
             raise DuqTypeError(
                 f"expected type `{annotation.__name__}`, found type `{type(value).__name__}`"
             )
+    elif type(annotation) is type:
+        if not isinstance(value, annotation):
+            raise DuqTypeError(
+                f"expected type `{annotation.__name__}`, found type `{type(value).__name__}`"
+            )
     elif typing.get_origin(annotation) == list:
         element_type = typing.get_args(annotation)[0]
         if type(value) is not list:
@@ -36,6 +41,15 @@ def type_check_value(value: Any, annotation: Any) -> None:
             )
         for element in value:
             type_check_value(element, element_type)
+    elif typing.get_origin(annotation) == dict:
+        key_type, val_type = typing.get_args(annotation)
+        if type(value) is not dict:
+            raise DuqTypeError(
+                f"expected type `{annotation.__name__}`, found type `{type(value).__name__}`"
+            )
+        for key, val in value.items():
+            type_check_value(key, key_type)
+            type_check_value(val, val_type)
     elif type(annotation) is UnionType:
         for type_opt in typing.get_args(annotation):
             try:
