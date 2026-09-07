@@ -1,12 +1,22 @@
+from dataclasses import dataclass
 from typing import Any, Iterable
 
 from duq._context import global_context
 from duq._syntax import Expr, parse
 
 
+@dataclass
+class Hinted[T]:
+    hint: str
+    value: T
+
+
 def evaluate_expr(expr: Expr, input: Any) -> Any:
     if expr.type == "literal":
         return expr.value
+
+    while isinstance(input, Hinted):
+        input = input.value
 
     ctx = global_context()
     op = ctx.resolve_op(expr.name.text, input)
@@ -15,7 +25,13 @@ def evaluate_expr(expr: Expr, input: Any) -> Any:
     if op.signature.is_macro:
         args = arg_exprs
     else:
-        args = tuple(evaluate_expr(arg_expr, input) for arg_expr in arg_exprs)
+        args = []
+        for arg_expr in arg_exprs:
+            arg = evaluate_expr(arg_expr, input)
+            while isinstance(arg, Hinted):
+                arg = arg.value
+            args.append(arg)
+        args = tuple(args)
 
     op.signature.type_check_inputs(input, args)
 
