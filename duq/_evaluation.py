@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Callable, Iterable
+from typing import Any, Callable, Iterable, assert_never
 
-from duq._syntax import Expr, parse
+from duq._syntax import Expr, OpExpr, parse
 from duq._type_check import DuqTypeError, OpSignature, type_check_value
 
 
@@ -14,16 +14,16 @@ class OpInfo:
     op_func: Callable
 
 
-class Context:
+class DuqContext:
     def __init__(self) -> None:
         self.ops: dict[str, OpInfo] = {}
         self.cache: dict[str, Any] = {}
 
     @staticmethod
-    def create() -> Context:
+    def create() -> DuqContext:
         import duq._std
 
-        context = Context()
+        context = DuqContext()
         context.load_ops(duq._std.op_definitions)
         return context
 
@@ -60,10 +60,7 @@ class Context:
         op_names = ", ".join(f"`{op.name}`" for op in matches)
         raise Exception(f"ambiguous operation `{name}`: {op_names}")
 
-    def evaluate_expr(self, expr: Expr, input: Any) -> Any:
-        if expr.type == "literal":
-            return expr.value
-
+    def evaluate_op_expr(self, expr: OpExpr, input: Any) -> Any:
         while isinstance(input, Hinted):
             input = input.value
 
@@ -76,12 +73,12 @@ class Context:
         else:
             op = self.resolve_op(expr.name.text, input)
 
-        arg_exprs = () if expr.arg_list is None else expr.arg_list.exprs
+        arg_exprs = () if expr.arg_list is None else expr.arg_list.args
         if op.signature.is_macro:
             args += arg_exprs
         else:
             for arg_expr in arg_exprs:
-                arg = self.evaluate_expr(arg_expr, input)
+                arg = self.evaluate(arg_expr, input)
                 while isinstance(arg, Hinted):
                     arg = arg.value
                 args.append(arg)
@@ -92,10 +89,16 @@ class Context:
         call_args = op.signature.get_call_args(self, input, args)
         return op.op_func(*call_args)
 
-    def evaluate_chain(self, exprs: Iterable[Expr], input: Any) -> Any:
-        for expr in exprs:
-            input = self.evaluate_expr(expr, input)
-        return input
+    def evaluate(self, expr: Expr, input: Any) -> Any:
+        if expr.type == "literal":
+            return expr.value
+        elif expr.type == "op":
+            return self.evaluate_op_expr(expr, input)
+        elif expr.type == "chain":
+            for subexpr in expr.exprs:
+                input = self.evaluate(subexpr, input)
+            return input
+        assert_never(expr)
 
 
 @dataclass
@@ -105,6 +108,6 @@ class Hinted[T]:
 
 
 def evaluate(source: str, input: Any = None) -> Any:
-    context = Context.create()
-    expr_list = parse(source)
-    return context.evaluate_chain(expr_list.exprs, input)
+    context = DuqContext.create()
+    expr = parse(source)
+    return context.evaluate(expr, input)

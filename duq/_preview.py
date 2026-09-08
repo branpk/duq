@@ -6,49 +6,48 @@ from typing import Any, AsyncIterator, Awaitable, Callable, Iterable
 
 import bs4
 
-from duq._evaluation import Context, Hinted
-from duq._syntax import Expr, ExprList, OpExpr, parse
+from duq._evaluation import DuqContext, Hinted
+from duq._syntax import Expr, OpExpr, parse
 from duq._util import DuqFuture, DuqStream, Reactive
 
-
-def truncate_expr(expr: Expr, cursor_position: int) -> tuple[Expr, bool]:
-    if expr.type == "literal" or expr.arg_list is None:
-        return expr, False
-    arg_list, cursor_hint = expr.arg_list, False
-    if cursor_position >= arg_list.span[0] and cursor_position <= arg_list.span[1]:
-        # TODO: Better mechanism for this
-        is_chain = expr.name.text in [
-            "do",
-            "map",
-            "mapValues",
-            "future.map",
-            "stream.map",
-            "{",
-        ]
-        arg_list, cursor_hint = (
-            truncate_expr_list(arg_list, is_chain, cursor_position),
-            is_chain,
-        )
-    return (
-        OpExpr(type=expr.type, span=expr.span, name=expr.name, arg_list=arg_list),
-        cursor_hint,
-    )
-
-
-def truncate_expr_list(
-    expr_list: ExprList, is_chain: bool, cursor_position: int
-) -> ExprList:
-    exprs: list[Expr] = []
-    nested_cursor_hint = False
-    for expr in expr_list.exprs:
-        if expr.span[0] >= cursor_position:
-            break
-        expr, cursor_hint = truncate_expr(expr, cursor_position)
-        exprs.append(expr)
-        nested_cursor_hint |= cursor_hint
-    if is_chain and not nested_cursor_hint:
-        exprs.append(parse("std.basic.hint('cursor')").exprs[0])
-    return ExprList(span=expr_list.span, exprs=tuple(exprs))
+# def truncate_expr(expr: Expr, cursor_position: int) -> tuple[Expr, bool]:
+#     if expr.type == "literal" or expr.arg_list is None:
+#         return expr, False
+#     arg_list, cursor_hint = expr.arg_list, False
+#     if cursor_position >= arg_list.span[0] and cursor_position <= arg_list.span[1]:
+#         # TODO: Better mechanism for this
+#         is_chain = expr.name.text in [
+#             "do",
+#             "map",
+#             "mapValues",
+#             "future.map",
+#             "stream.map",
+#             "{",
+#         ]
+#         arg_list, cursor_hint = (
+#             truncate_expr_list(arg_list, is_chain, cursor_position),
+#             is_chain,
+#         )
+#     return (
+#         OpExpr(type=expr.type, span=expr.span, name=expr.name, arg_list=arg_list),
+#         cursor_hint,
+#     )
+#
+#
+# def truncate_expr_list(
+#     expr_list: ExprList, is_chain: bool, cursor_position: int
+# ) -> ExprList:
+#     exprs: list[Expr] = []
+#     nested_cursor_hint = False
+#     for expr in expr_list.exprs:
+#         if expr.span[0] >= cursor_position:
+#             break
+#         expr, cursor_hint = truncate_expr(expr, cursor_position)
+#         exprs.append(expr)
+#         nested_cursor_hint |= cursor_hint
+#     if is_chain and not nested_cursor_hint:
+#         exprs.append(parse("std.basic.hint('cursor')").exprs[0])
+#     return ExprList(span=expr_list.span, exprs=tuple(exprs))
 
 
 def render_items(
@@ -151,6 +150,7 @@ class Preview:
     def __init__(
         self, set_output: Callable[[str], None], set_error: Callable[[str], None]
     ) -> None:
+        self.ctx = DuqContext.create()
         self.source = ""
         self.cursor_position = 0
         self.current_task: asyncio.Task | None = None
@@ -168,10 +168,8 @@ class Preview:
 
     def refresh(self) -> None:
         try:
-            ctx = Context.create()
-            expr_list = parse(self.source)
-            truncated = truncate_expr_list(expr_list, True, self.cursor_position)
-            result = ctx.evaluate_chain(truncated.exprs, None)
+            expr = parse(self.source)
+            result = self.ctx.evaluate(expr, None)
         except Exception as e:
             self.set_error(f"Error: {e}")
         else:

@@ -2,7 +2,7 @@ import asyncio
 import time
 from typing import Any, AsyncIterator
 
-from duq._evaluation import Context
+from duq._evaluation import DuqContext
 from duq._syntax import Expr
 from duq._type_check import type_check_value
 from duq._util import DuqFuture, DuqStream
@@ -20,18 +20,18 @@ def op_interval(seconds: int | float) -> DuqStream[None]:
     return DuqStream(stream)
 
 
-def op_map(ctx: Context, input: DuqStream[Any], *args: Expr) -> DuqStream[Any]:
+def op_map(ctx: DuqContext, input: DuqStream[Any], body: Expr) -> DuqStream[Any]:
     async def stream() -> AsyncIterator[Any]:
         async for item in input.create():
-            yield ctx.evaluate_chain(args, item)
+            yield ctx.evaluate(body, item)
 
     return DuqStream(stream)
 
 
-def op_filter(ctx: Context, input: DuqStream[Any], *args: Expr) -> DuqStream[Any]:
+def op_filter(ctx: DuqContext, input: DuqStream[Any], body: Expr) -> DuqStream[Any]:
     async def stream() -> AsyncIterator[Any]:
         async for item in input.create():
-            cond = ctx.evaluate_chain(args, item)
+            cond = ctx.evaluate(body, item)
             type_check_value(cond, bool)
             if cond:
                 yield item

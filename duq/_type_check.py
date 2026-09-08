@@ -5,7 +5,7 @@ from types import NoneType, UnionType
 import typing
 from typing import Any, Callable
 
-from duq._syntax import Expr, LiteralExpr, OpExpr
+from duq._syntax import ChainExpr, Expr, LiteralExpr, OpExpr
 
 
 class DuqTypeError(Exception):
@@ -19,7 +19,7 @@ def type_check_value(value: Any, annotation: Any) -> None:
         if value is not None:
             raise DuqTypeError(f"expected null, found type `{type(value).__name__}`")
     elif annotation is Expr:
-        if type(value) not in [LiteralExpr, OpExpr]:
+        if type(value) not in [LiteralExpr, OpExpr, ChainExpr]:
             raise DuqTypeError(
                 f"expected expression, found type `{type(value).__name__}`"
             )
@@ -76,6 +76,7 @@ def type_check_value(value: Any, annotation: Any) -> None:
 
 @dataclass
 class OpSignature:
+    name: str
     name_parts: list[str]
     has_context_param: bool
     input_param: Parameter | None
@@ -86,7 +87,7 @@ class OpSignature:
 
     @staticmethod
     def of(name: str, op_func: Callable) -> "OpSignature":
-        from duq._evaluation import Context
+        from duq._evaluation import DuqContext
 
         name_parts = name.split(".")
         if len(name_parts) != 3:
@@ -107,7 +108,7 @@ class OpSignature:
             context_param = params.pop(0)
             if (
                 context_param.kind != Parameter.POSITIONAL_OR_KEYWORD
-                or context_param.annotation is not Context
+                or context_param.annotation is not DuqContext
             ):
                 raise Exception(
                     f"`{name}`: invalid context parameter: `{context_param}`"
@@ -147,6 +148,7 @@ class OpSignature:
             raise Exception(f"`{name}`: mix of Expr and concrete op parameters")
 
         return OpSignature(
+            name=name,
             name_parts=name_parts,
             has_context_param=has_context_param,
             input_param=input_param,
@@ -173,35 +175,42 @@ class OpSignature:
             return False
 
     def type_check_inputs(self, input: Any, args: tuple[Any, ...]) -> None:
-        if self.input_param:
-            type_check_value(input, self.input_param.annotation)
+        try:
+            if self.input_param:
+                type_check_value(input, self.input_param.annotation)
 
-        req_params = self.req_arg_params
-        opt_params = self.opt_arg_params
-        var_param = self.var_args_param
+            req_params = self.req_arg_params
+            opt_params = self.opt_arg_params
+            var_param = self.var_args_param
 
-        n_args_text = lambda n: f"{n} argument" if n == 1 else f"{n} arguments"
+            n_args_text = lambda n: f"{n} argument" if n == 1 else f"{n} arguments"
 
-        if len(opt_params) == 0 and var_param is None and len(args) != len(req_params):
-            raise DuqTypeError(
-                f"expected {n_args_text(len(req_params))}, {len(args)} given"
-            )
-        elif len(args) < len(req_params):
-            raise DuqTypeError(
-                f"expected at least {n_args_text(len(req_params))}, {len(args)} given"
-            )
-        elif var_param is None and len(args) > len(req_params) + len(opt_params):
-            raise DuqTypeError(
-                f"expected at most {n_args_text(len(req_params) + len(opt_params))}, {len(args)} given"
-            )
+            if (
+                len(opt_params) == 0
+                and var_param is None
+                and len(args) != len(req_params)
+            ):
+                raise DuqTypeError(
+                    f"expected {n_args_text(len(req_params))}, {len(args)} given"
+                )
+            elif len(args) < len(req_params):
+                raise DuqTypeError(
+                    f"expected at least {n_args_text(len(req_params))}, {len(args)} given"
+                )
+            elif var_param is None and len(args) > len(req_params) + len(opt_params):
+                raise DuqTypeError(
+                    f"expected at most {n_args_text(len(req_params) + len(opt_params))}, {len(args)} given"
+                )
 
-        for param, arg in zip(req_params, args):
-            type_check_value(arg, param.annotation)
-        for param, arg in zip(opt_params, args[len(req_params) :]):
-            type_check_value(arg, param.annotation)
-        for arg in args[len(req_params) + len(opt_params) :]:
-            assert var_param is not None
-            type_check_value(arg, var_param.annotation)
+            for param, arg in zip(req_params, args):
+                type_check_value(arg, param.annotation)
+            for param, arg in zip(opt_params, args[len(req_params) :]):
+                type_check_value(arg, param.annotation)
+            for arg in args[len(req_params) + len(opt_params) :]:
+                assert var_param is not None
+                type_check_value(arg, var_param.annotation)
+        except DuqTypeError as e:
+            raise DuqTypeError(f"{self.name}: {e.args[0]}")
 
     def get_call_args(self, ctx: Any, input: Any, args: tuple[Any, ...]) -> list[Any]:
         call_args = []

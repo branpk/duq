@@ -1,9 +1,10 @@
 import httpx
 
+from duq._evaluation import DuqContext
 from duq._util import DuqFuture
 
 
-def op_fetch(input: str) -> DuqFuture[str]:
+def op_fetch(ctx: DuqContext, input: str) -> DuqFuture[str]:
     async def task() -> str:
         async with httpx.AsyncClient() as client:
             response = await client.get(
@@ -16,7 +17,7 @@ def op_fetch(input: str) -> DuqFuture[str]:
                 raise Exception(f"request error: {input} -> {response.status_code}")
         return response.text
 
-    return DuqFuture(task).cached(["std.http.fetch", input])
+    return DuqFuture(task).cached(ctx, ["std.http.fetch", input])
 
 
 op_definitions = {
