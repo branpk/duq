@@ -101,6 +101,18 @@ def op_mean(input: list[int | float]) -> float:
     return total / len(input)
 
 
+def op_sort(input: list[int | float]) -> list[int | float]:
+    return sorted(input)
+
+
+def op_distinct(input: list[Any]) -> list[Any]:
+    result = []
+    for element in input:
+        if element not in result:
+            result.append(element)
+    return result
+
+
 op_definitions = {
     "std.list.map": op_map,
     "std.list.filter": op_filter,
@@ -115,4 +127,6 @@ op_definitions = {
     "std.list.count": op_count,
     "std.list.sum": op_sum,
     "std.list.mean": op_mean,
+    "std.list.sort": op_sort,
+    "std.list.distinct": op_distinct,
 }

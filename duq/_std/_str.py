@@ -14,6 +14,10 @@ def op_rmSuffix(input: str, suffix: str) -> str:
     return input.removesuffix(suffix)
 
 
+def op_split(input: str, delimiter: str) -> list[str]:
+    return input.split(delimiter)
+
+
 def op_join(input: list[str], separator: str = "") -> str:
     return separator.join(input)
 
@@ -22,11 +26,17 @@ def op_blank(input: str | None) -> bool:
     return input is None or input.strip == ""
 
 
+def op_lines(input: str) -> list[str]:
+    return input.splitlines()
+
+
 op_definitions = {
     "std.str.str": op_str,
     "std.str.trim": op_trim,
     "std.str.rmPrefix": op_rmPrefix,
     "std.str.rmSuffix": op_rmSuffix,
+    "std.str.split": op_split,
     "std.str.join": op_join,
     "std.str.blank": op_blank,
+    "std.str.lines": op_lines,
 }

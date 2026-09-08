@@ -21,9 +21,17 @@ def op_now() -> str:
     return datetime.now().isoformat(timespec="milliseconds") + "Z"
 
 
+def op_try(input: Any, *args: Expr) -> Any:
+    try:
+        return evaluate_chain(args, input)
+    except:
+        return None
+
+
 op_definitions = {
     "std.basic.id": op_id,
     "std.basic.eq": op_eq,
     "std.basic.hint": op_hint,
     "std.time.now": op_now,
+    "std.basic.try": op_try,
 }

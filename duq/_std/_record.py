@@ -14,7 +14,12 @@ def op_field(input: dict[str, Any], field: str) -> Any:
     return input[field]
 
 
+def op_items(input: dict[str, Any]) -> list[list[Any]]:
+    return list(map(list, input.items()))
+
+
 op_definitions = {
     "std.record.map": op_map,
     "std.record.field": op_field,
+    "std.record.items": op_items,
 }
