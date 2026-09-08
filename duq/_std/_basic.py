@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Any
 
-from duq._evaluation_v2 import Hinted, evaluate_chain
+from duq._evaluation import Hinted, evaluate_chain
 from duq._syntax import Expr
 
 

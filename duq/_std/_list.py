@@ -1,6 +1,6 @@
 from typing import Any, AsyncIterator
 
-from duq._evaluation_v2 import evaluate_chain
+from duq._evaluation import evaluate_chain
 from duq._syntax import Expr
 from duq._type_check import type_check_value
 from duq._util import DuqStream

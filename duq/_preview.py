@@ -6,7 +6,7 @@ from typing import Any, AsyncIterator, Awaitable, Callable, Iterable
 
 import bs4
 
-from duq._evaluation_v2 import Hinted, evaluate_chain
+from duq._evaluation import Hinted, evaluate_chain
 from duq._syntax import Expr, ExprList, OpExpr, parse
 from duq._util import DuqFuture, DuqStream, Reactive
 

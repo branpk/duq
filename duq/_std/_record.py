@@ -1,6 +1,6 @@
 from typing import Any
 
-from duq._evaluation_v2 import evaluate_chain
+from duq._evaluation import evaluate_chain
 from duq._syntax import Expr
 
 
