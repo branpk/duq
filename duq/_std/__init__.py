@@ -1,8 +1,10 @@
 from duq._std import (
     _basic,
+    _csv,
     _file,
     _future,
     _html,
+    _http,
     _json,
     _bool,
     _list,
@@ -18,9 +20,11 @@ op_definitions = {
     for op_definitions in [
         _basic.op_definitions,
         _bool.op_definitions,
+        _csv.op_definitions,
         _file.op_definitions,
         _future.op_definitions,
         _html.op_definitions,
+        _http.op_definitions,
         _json.op_definitions,
         _list.op_definitions,
         _null.op_definitions,

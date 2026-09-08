@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Any
 
 from duq._evaluation_v2 import Hinted, evaluate_chain
@@ -16,8 +17,13 @@ def op_hint(input: Any, hint: str) -> Hinted[Any]:
     return Hinted(hint, input)
 
 
+def op_now() -> str:
+    return datetime.now().isoformat(timespec="milliseconds") + "Z"
+
+
 op_definitions = {
     "std.basic.id": op_id,
     "std.basic.eq": op_eq,
     "std.basic.hint": op_hint,
+    "std.time.now": op_now,
 }

@@ -18,10 +18,15 @@ def op_join(input: list[str], separator: str = "") -> str:
     return separator.join(input)
 
 
+def op_blank(input: str | None) -> bool:
+    return input is None or input.strip == ""
+
+
 op_definitions = {
     "std.str.str": op_str,
     "std.str.trim": op_trim,
     "std.str.rmPrefix": op_rmPrefix,
     "std.str.rmSuffix": op_rmSuffix,
     "std.str.join": op_join,
+    "std.str.blank": op_blank,
 }

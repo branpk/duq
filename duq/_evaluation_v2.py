@@ -19,20 +19,27 @@ def evaluate_expr(expr: Expr, input: Any) -> Any:
         input = input.value
 
     ctx = global_context()
-    op = ctx.resolve_op(expr.name.text, input)
+
+    args = []
+    if expr.name.text.startswith("."):
+        op = ctx.resolve_op("std.record.field", input)
+        args.append(expr.name.text.removeprefix("."))
+    elif expr.name.text == "{":
+        op = ctx.resolve_op("map", input)
+    else:
+        op = ctx.resolve_op(expr.name.text, input)
 
     arg_exprs = () if expr.arg_list is None else expr.arg_list.exprs
     if op.signature.is_macro:
-        args = arg_exprs
+        args += arg_exprs
     else:
-        args = []
         for arg_expr in arg_exprs:
             arg = evaluate_expr(arg_expr, input)
             while isinstance(arg, Hinted):
                 arg = arg.value
             args.append(arg)
-        args = tuple(args)
 
+    args = tuple(args)
     op.signature.type_check_inputs(input, args)
 
     call_args = op.signature.get_call_args(input, args)
