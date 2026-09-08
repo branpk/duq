@@ -14,6 +14,7 @@ class OpInfo:
 class Context:
     def __init__(self) -> None:
         self.ops: dict[str, OpInfo] = {}
+        self.cache: dict[str, Any] = {}
 
     def load_op(self, name: str, op_func: Callable) -> None:
         if name in self.ops:

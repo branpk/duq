@@ -2,17 +2,10 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass
-from typing import AsyncIterable, AsyncIterator, Awaitable, Callable, Literal
+import json
+from typing import Any, AsyncIterable, AsyncIterator, Awaitable, Callable, Literal
 
-
-@dataclass
-class DuqFuture[T]:
-    create: Callable[[], Awaitable[T]]
-
-
-@dataclass
-class DuqStream[T]:
-    create: Callable[[], AsyncIterable[T]]
+from duq._context import global_context
 
 
 @dataclass
@@ -32,6 +25,29 @@ class Maybe[T]:
     def value(self) -> T:
         assert self.is_some
         return self.optional_value  # type: ignore
+
+
+@dataclass
+class DuqFuture[T]:
+    create: Callable[[], Awaitable[T]]
+
+    def cached(self, key: Any) -> DuqFuture[T]:
+        key = "future-" + json.dumps(key)
+
+        async def task() -> T:
+            cache = global_context().cache
+            if key in cache:
+                return cache[key]
+            result = await self.create()
+            cache[key] = result
+            return result
+
+        return DuqFuture(task)
+
+
+@dataclass
+class DuqStream[T]:
+    create: Callable[[], AsyncIterable[T]]
 
 
 @dataclass

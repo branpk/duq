@@ -16,7 +16,7 @@ def op_fetch(input: str) -> DuqFuture[str]:
                 raise Exception(f"request error: {input} -> {response.status_code}")
         return response.text
 
-    return DuqFuture(task)
+    return DuqFuture(task).cached(["std.http.fetch", input])
 
 
 op_definitions = {
