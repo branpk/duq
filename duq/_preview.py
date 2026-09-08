@@ -6,7 +6,7 @@ from typing import Any, AsyncIterator, Awaitable, Callable, Iterable
 
 import bs4
 
-from duq._evaluation import Hinted, evaluate_chain
+from duq._evaluation import Context, Hinted
 from duq._syntax import Expr, ExprList, OpExpr, parse
 from duq._util import DuqFuture, DuqStream, Reactive
 
@@ -168,9 +168,10 @@ class Preview:
 
     def refresh(self) -> None:
         try:
+            ctx = Context.create()
             expr_list = parse(self.source)
             truncated = truncate_expr_list(expr_list, True, self.cursor_position)
-            result = evaluate_chain(truncated.exprs, None)
+            result = ctx.evaluate_chain(truncated.exprs, None)
         except Exception as e:
             self.set_error(f"Error: {e}")
         else:

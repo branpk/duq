@@ -1,12 +1,12 @@
 from datetime import datetime
 from typing import Any
 
-from duq._evaluation import Hinted, evaluate_chain
+from duq._evaluation import Context, Hinted
 from duq._syntax import Expr
 
 
-def op_id(input: Any, *args: Expr) -> Any:
-    return evaluate_chain(args, input)
+def op_id(ctx: Context, input: Any, *args: Expr) -> Any:
+    return ctx.evaluate_chain(args, input)
 
 
 def op_eq(input: Any, arg: Any) -> bool:
@@ -21,9 +21,9 @@ def op_now() -> str:
     return datetime.now().isoformat(timespec="milliseconds") + "Z"
 
 
-def op_try(input: Any, *args: Expr) -> Any:
+def op_try(ctx: Context, input: Any, *args: Expr) -> Any:
     try:
-        return evaluate_chain(args, input)
+        return ctx.evaluate_chain(args, input)
     except:
         return None
 

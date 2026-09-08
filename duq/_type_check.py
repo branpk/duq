@@ -77,6 +77,7 @@ def type_check_value(value: Any, annotation: Any) -> None:
 @dataclass
 class OpSignature:
     name_parts: list[str]
+    has_context_param: bool
     input_param: Parameter | None
     is_macro: bool
     req_arg_params: list[Parameter]
@@ -85,6 +86,8 @@ class OpSignature:
 
     @staticmethod
     def of(name: str, op_func: Callable) -> "OpSignature":
+        from duq._evaluation import Context
+
         name_parts = name.split(".")
         if len(name_parts) != 3:
             raise Exception(
@@ -92,20 +95,33 @@ class OpSignature:
             )
 
         signature = inspect.signature(op_func)
+        params = list(signature.parameters.values())
 
+        has_context_param: bool = False
         input_param: Parameter | None = None
         req_arg_params: list[Parameter] = []
         opt_arg_params: list[Parameter] = []
         var_args_param: Parameter | None = None
 
-        for i, param in enumerate(signature.parameters.values()):
-            if param.name == "input":
-                if i != 0:
-                    raise Exception(f"`{name}`: `input` must be the first parameter")
-                if param.kind != Parameter.POSITIONAL_OR_KEYWORD:
-                    raise Exception(f"`{name}`: invalid input parameter: `{param}`")
-                input_param = param
-            elif param.kind == Parameter.POSITIONAL_OR_KEYWORD:
+        if params and params[0].name == "ctx":
+            context_param = params.pop(0)
+            if (
+                context_param.kind != Parameter.POSITIONAL_OR_KEYWORD
+                or context_param.annotation is not Context
+            ):
+                raise Exception(
+                    f"`{name}`: invalid context parameter: `{context_param}`"
+                )
+            has_context_param = True
+        if params and params[0].name == "input":
+            input_param = params.pop(0)
+
+        for param in params:
+            if param.name in ["ctx", "input"]:
+                raise Exception(
+                    f"`{name}`: invalid position of `{param.name}` parameter"
+                )
+            if param.kind == Parameter.POSITIONAL_OR_KEYWORD:
                 if param.default is inspect._empty:
                     req_arg_params.append(param)
                 else:
@@ -132,6 +148,7 @@ class OpSignature:
 
         return OpSignature(
             name_parts=name_parts,
+            has_context_param=has_context_param,
             input_param=input_param,
             is_macro=is_macro,
             req_arg_params=req_arg_params,
@@ -186,8 +203,10 @@ class OpSignature:
             assert var_param is not None
             type_check_value(arg, var_param.annotation)
 
-    def get_call_args(self, input: Any, args: tuple[Any, ...]) -> list[Any]:
+    def get_call_args(self, ctx: Any, input: Any, args: tuple[Any, ...]) -> list[Any]:
         call_args = []
+        if self.has_context_param:
+            call_args.append(ctx)
         if self.input_param:
             call_args.append(input)
         call_args += args
