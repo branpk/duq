@@ -1,8 +1,9 @@
 from datetime import datetime
 from typing import Any
 
-from duq._evaluation import DuqContext, Hinted
+from duq._evaluation import DuqContext
 from duq._syntax import Expr
+from duq._util import Hinted
 
 
 def op_id(input: Any) -> Any:

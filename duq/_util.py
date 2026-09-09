@@ -54,6 +54,12 @@ class CollectedIter[T]:
 
 
 @dataclass
+class Hinted[T]:
+    hint: str
+    value: T
+
+
+@dataclass
 class Reactive[T]:
     initial: T
     updates: AsyncIterator[T]

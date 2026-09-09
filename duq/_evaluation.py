@@ -109,12 +109,6 @@ class DuqContext:
             assert_never(expr)
 
 
-@dataclass
-class Hinted[T]:
-    hint: str
-    value: T
-
-
 def evaluate(source: str, input: Any = None) -> Any:
     context = DuqContext.create()
     expr = parse(source)
