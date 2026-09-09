@@ -23,6 +23,19 @@ def op_filter(ctx: DuqContext, input: list[Any], body: Expr) -> list[Any]:
     return result
 
 
+def op_mapFilter(
+    ctx: DuqContext, input: list[Any], cond: Expr, body: Expr
+) -> list[Any]:
+    result = []
+    for element in input:
+        included = type_check_value(ctx.evaluate(cond, element), bool)
+        if included:
+            result.append(ctx.evaluate(body, element))
+        else:
+            result.append(element)
+    return result
+
+
 def op_groupBy(ctx: DuqContext, input: list[Any], body: Expr) -> dict[str, Any]:
     result = {}
     for element in input:
@@ -116,6 +129,7 @@ def op_distinct(input: list[Any]) -> list[Any]:
 op_definitions = {
     "std.list.map": op_map,
     "std.list.filter": op_filter,
+    "std.list.mapFilter": op_mapFilter,
     "std.list.groupBy": op_groupBy,
     "std.list.keyBy": op_keyBy,
     "std.list.list": op_list,
