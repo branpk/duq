@@ -12,7 +12,12 @@ class DuqTypeError(Exception):
     pass
 
 
-def type_check_value(value: Any, annotation: Any) -> None:
+def type_check_value(value: Any, annotation: Any) -> Any:
+    from duq._evaluation import Hinted
+
+    while type(value) is Hinted:
+        value = value.value
+
     if annotation is Any:
         pass
     elif annotation is NoneType or annotation is None:
@@ -39,21 +44,21 @@ def type_check_value(value: Any, annotation: Any) -> None:
             raise DuqTypeError(
                 f"expected type `{annotation.__name__}`, found type `{type(value).__name__}`"
             )
-        for element in value:
-            type_check_value(element, element_type)
+        value = [type_check_value(element, element_type) for element in value]
     elif typing.get_origin(annotation) == dict:
         key_type, val_type = typing.get_args(annotation)
         if type(value) is not dict:
             raise DuqTypeError(
                 f"expected type `{annotation.__name__}`, found type `{type(value).__name__}`"
             )
-        for key, val in value.items():
-            type_check_value(key, key_type)
-            type_check_value(val, val_type)
+        value = {
+            type_check_value(key, key_type): type_check_value(val, val_type)
+            for key, val in value.items()
+        }
     elif type(annotation) is UnionType:
         for type_opt in typing.get_args(annotation):
             try:
-                type_check_value(value, type_opt)
+                value = type_check_value(value, type_opt)
                 break
             except DuqTypeError:
                 pass
@@ -67,11 +72,12 @@ def type_check_value(value: Any, annotation: Any) -> None:
                 raise Exception(
                     f"unimplement type annotation: `{annotation}` (type arguments must be Any)"
                 )
-        type_check_value(value, typing.get_origin(annotation))
+        value = type_check_value(value, typing.get_origin(annotation))
     elif annotation is inspect._empty:
         raise Exception(f"missing type annotation")
     else:
         raise Exception(f"unimplemented type annotation: `{annotation}`")
+    return value
 
 
 @dataclass

@@ -23,7 +23,7 @@ def op_mapField(
     ctx: DuqContext, input: dict[str, Any], field: Expr, body: Expr
 ) -> dict[str, Any]:
     field_name = ctx.evaluate(field, input)
-    type_check_value(field_name, str)
+    field_name = type_check_value(field_name, str)
     if field_name not in input:
         raise Exception(f"no such field: `{field_name}`")
     result = dict(input)
@@ -35,7 +35,7 @@ def op_mapFieldOpt(
     ctx: DuqContext, input: dict[str, Any], field: Expr, body: Expr
 ) -> dict[str, Any]:
     field_name = ctx.evaluate(field, input)
-    type_check_value(field_name, str)
+    field_name = type_check_value(field_name, str)
     result = dict(input)
     result[field_name] = ctx.evaluate(body, input.get(field_name))
     return result

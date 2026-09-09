@@ -32,7 +32,7 @@ def op_filter(ctx: DuqContext, input: DuqStream[Any], body: Expr) -> DuqStream[A
     async def stream() -> AsyncIterator[Any]:
         async for item in input.create():
             cond = ctx.evaluate(body, item)
-            type_check_value(cond, bool)
+            cond = type_check_value(cond, bool)
             if cond:
                 yield item
 

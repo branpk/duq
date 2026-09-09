@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Callable, Iterable, assert_never
 
-from duq._syntax import Expr, OpExpr, parse
+from duq._syntax import ChainExpr, Expr, OpExpr, parse
 from duq._type_check import DuqTypeError, OpSignature, type_check_value
 
 
@@ -18,6 +18,7 @@ class DuqContext:
     def __init__(self) -> None:
         self.ops: dict[str, OpInfo] = {}
         self.cache: dict[str, Any] = {}
+        self.cursor: int | None = None
 
     @staticmethod
     def create() -> DuqContext:
@@ -61,9 +62,6 @@ class DuqContext:
         raise Exception(f"ambiguous operation `{name}`: {op_names}")
 
     def evaluate_op_expr(self, expr: OpExpr, input: Any) -> Any:
-        while isinstance(input, Hinted):
-            input = input.value
-
         args = []
         if expr.name.text.startswith("."):
             op = self.resolve_op("std.record.field", input)
@@ -79,9 +77,16 @@ class DuqContext:
         else:
             for arg_expr in arg_exprs:
                 arg = self.evaluate(arg_expr, input)
-                while isinstance(arg, Hinted):
-                    arg = arg.value
+                if type(arg) is Hinted and arg.hint == "cursor":
+                    return arg
                 args.append(arg)
+            if (
+                expr.arg_list is not None
+                and self.cursor is not None
+                and self.cursor >= expr.arg_list.span[0]
+                and self.cursor <= expr.arg_list.span[1]
+            ):
+                return Hinted("cursor", None)
 
         args = tuple(args)
         op.signature.type_check_inputs(input, args)
@@ -89,16 +94,31 @@ class DuqContext:
         call_args = op.signature.get_call_args(self, input, args)
         return op.op_func(*call_args)
 
+    def evaluate_chain_expr(self, expr: ChainExpr, input: Any) -> Any:
+        should_truncate = (
+            self.cursor is not None
+            and self.cursor >= expr.span[0]
+            and self.cursor <= expr.span[1]
+        )
+        for subexpr in expr.exprs:
+            if should_truncate and subexpr.span[0] >= (self.cursor or 0):
+                input = Hinted("cursor", input)
+                break
+            input = self.evaluate(subexpr, input)
+        else:
+            if should_truncate:
+                input = Hinted("cursor", input)
+        return input
+
     def evaluate(self, expr: Expr, input: Any) -> Any:
         if expr.type == "literal":
             return expr.value
         elif expr.type == "op":
             return self.evaluate_op_expr(expr, input)
         elif expr.type == "chain":
-            for subexpr in expr.exprs:
-                input = self.evaluate(subexpr, input)
-            return input
-        assert_never(expr)
+            return self.evaluate_chain_expr(expr, input)
+        else:
+            assert_never(expr)
 
 
 @dataclass

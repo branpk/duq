@@ -1,6 +1,6 @@
 from typing import Any, AsyncIterator
 
-from duq._evaluation import DuqContext
+from duq._evaluation import DuqContext, Hinted
 from duq._syntax import Expr
 from duq._type_check import type_check_value
 from duq._util import DuqStream
@@ -17,7 +17,7 @@ def op_filter(ctx: DuqContext, input: list[Any], body: Expr) -> list[Any]:
     result = []
     for element in input:
         cond = ctx.evaluate(body, element)
-        type_check_value(cond, bool)
+        cond = type_check_value(cond, bool)
         if cond:
             result.append(element)
     return result
@@ -27,7 +27,7 @@ def op_groupBy(ctx: DuqContext, input: list[Any], body: Expr) -> dict[str, Any]:
     result = {}
     for element in input:
         key = ctx.evaluate(body, element)
-        type_check_value(key, str)
+        key = type_check_value(key, str)
         result.setdefault(key, []).append(element)
     return result
 
@@ -36,7 +36,7 @@ def op_keyBy(ctx: DuqContext, input: list[Any], body: Expr) -> dict[str, Any]:
     result = {}
     for element in input:
         key = ctx.evaluate(body, element)
-        type_check_value(key, str)
+        key = type_check_value(key, str)
         if key in result:
             raise Exception(f"duplicate key: {key}")
         result[key] = element
