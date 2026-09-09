@@ -78,9 +78,8 @@ class DuqContext:
             args += [self.evaluate(arg_expr, input) for arg_expr in arg_exprs]
 
         args = tuple(args)
-        op.signature.type_check_inputs(input, args)
+        call_args = op.signature.type_check_inputs(self, input, args)
 
-        call_args = op.signature.get_call_args(self, input, args)
         return op.op_func(*call_args)
 
     def evaluate_chain_expr(self, expr: ChainExpr, input: Any) -> Any:

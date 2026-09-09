@@ -15,12 +15,13 @@ class DuqTypeError(Exception):
 def type_check_value(value: Any, annotation: Any) -> Any:
     from duq._evaluation import Hinted
 
+    if annotation is Any:
+        return value
+
     while type(value) is Hinted:
         value = value.value
 
-    if annotation is Any:
-        pass
-    elif annotation is NoneType or annotation is None:
+    if annotation is NoneType or annotation is None:
         if value is not None:
             raise DuqTypeError(f"expected null, found type `{type(value).__name__}`")
     elif annotation is Expr:
@@ -180,10 +181,17 @@ class OpSignature:
         except DuqTypeError:
             return False
 
-    def type_check_inputs(self, input: Any, args: tuple[Any, ...]) -> None:
+    def type_check_inputs(
+        self, ctx: Any, input: Any, args: tuple[Any, ...]
+    ) -> list[Any]:
         try:
+            call_args = []
+
+            if self.has_context_param:
+                call_args.append(ctx)
+
             if self.input_param:
-                type_check_value(input, self.input_param.annotation)
+                call_args.append(type_check_value(input, self.input_param.annotation))
 
             req_params = self.req_arg_params
             opt_params = self.opt_arg_params
@@ -209,20 +217,13 @@ class OpSignature:
                 )
 
             for param, arg in zip(req_params, args):
-                type_check_value(arg, param.annotation)
+                call_args.append(type_check_value(arg, param.annotation))
             for param, arg in zip(opt_params, args[len(req_params) :]):
-                type_check_value(arg, param.annotation)
+                call_args.append(type_check_value(arg, param.annotation))
             for arg in args[len(req_params) + len(opt_params) :]:
                 assert var_param is not None
-                type_check_value(arg, var_param.annotation)
+                call_args.append(type_check_value(arg, var_param.annotation))
+
+            return call_args
         except DuqTypeError as e:
             raise DuqTypeError(f"{self.name}: {e.args[0]}")
-
-    def get_call_args(self, ctx: Any, input: Any, args: tuple[Any, ...]) -> list[Any]:
-        call_args = []
-        if self.has_context_param:
-            call_args.append(ctx)
-        if self.input_param:
-            call_args.append(input)
-        call_args += args
-        return call_args
