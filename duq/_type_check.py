@@ -6,6 +6,7 @@ import typing
 from typing import Any, Callable
 
 from duq._syntax import ChainExpr, Expr, LiteralExpr, OpExpr
+from duq._util import Hinted
 
 
 class DuqTypeError(Exception):
@@ -13,8 +14,6 @@ class DuqTypeError(Exception):
 
 
 def type_check_value(value: Any, annotation: Any) -> Any:
-    from duq._evaluation import Hinted
-
     if annotation is Any:
         return value
 

@@ -6,9 +6,9 @@ from typing import Any, AsyncIterator, Awaitable, Callable, Iterable
 
 import bs4
 
-from duq._evaluation import DuqContext, Hinted
+from duq._evaluation import DuqContext
 from duq._syntax import parse
-from duq._util import DuqFuture, DuqStream, Reactive
+from duq._util import DuqFuture, DuqStream, Hinted, Reactive
 
 
 def render_items(
