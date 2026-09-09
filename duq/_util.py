@@ -5,8 +5,6 @@ from dataclasses import dataclass
 import json
 from typing import Any, AsyncIterable, AsyncIterator, Awaitable, Callable, Literal
 
-from duq._evaluation import DuqContext
-
 
 @dataclass
 class Maybe[T]:
@@ -31,7 +29,7 @@ class Maybe[T]:
 class DuqFuture[T]:
     create: Callable[[], Awaitable[T]]
 
-    def cached(self, ctx: DuqContext, key: Any) -> DuqFuture[T]:
+    def cached(self, ctx: Any, key: Any) -> DuqFuture[T]:
         key = "future-" + json.dumps(key)
 
         async def task() -> T:

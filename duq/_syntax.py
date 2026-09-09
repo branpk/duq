@@ -232,7 +232,7 @@ def make_cursor_hint(span: tuple[int, int]) -> Expr:
     return OpExpr(
         type="op",
         span=span,
-        name=Token(kind="symbol", span=span, text="hint"),
+        name=Token(kind="symbol", span=span, text="std.basic.hint"),
         arg_list=ArgList(
             span=span,
             args=(
