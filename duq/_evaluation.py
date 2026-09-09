@@ -83,7 +83,18 @@ class DuqContext:
         return op.op_func(*call_args)
 
     def evaluate_chain_expr(self, expr: ChainExpr, input: Any) -> Any:
+        contains_cursor = (
+            self.cursor is not None
+            and self.cursor >= expr.span[0]
+            and self.cursor <= expr.span[1]
+        )
         for subexpr in expr.exprs:
+            if (
+                self.cursor is not None
+                and contains_cursor
+                and subexpr.span[0] >= self.cursor
+            ):
+                break
             input = self.evaluate(subexpr, input)
         return input
 
