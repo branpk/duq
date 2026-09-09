@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import os
 import re
 import sys
 from typing import Literal
@@ -37,14 +38,22 @@ class LiteralExpr:
     literal: Token
     value: None | int | float | str | bool
 
+    def dbg_format(self) -> str:
+        return self.literal.text
+
     def dbg_print(self, source: str, indent=0) -> None:
-        print(" " * indent + f"literal |{source[self.span[0]:self.span[1]]}|")
+        print(
+            " " * indent + f"literal {self.value} |{source[self.span[0]:self.span[1]]}|"
+        )
 
 
 @dataclass(frozen=True)
 class ArgList:
     span: tuple[int, int]  # just after the lparen to just before the rparen
     args: tuple[Expr, ...]
+
+    def dbg_format(self) -> str:
+        return ", ".join(arg.dbg_format() for arg in self.args)
 
     def dbg_print(self, source: str, indent=0) -> None:
         print(" " * indent + f"arglist |{source[self.span[0]:self.span[1]]}|")
@@ -59,8 +68,16 @@ class OpExpr:
     name: Token
     arg_list: ArgList | None
 
+    def dbg_format(self) -> str:
+        if self.arg_list:
+            return f"{self.name.text}({self.arg_list.dbg_format()})"
+        else:
+            return self.name.text
+
     def dbg_print(self, source: str, indent=0) -> None:
-        print(" " * indent + f"op |{source[self.span[0]:self.span[1]]}|")
+        print(
+            " " * indent + f"op {self.name.text} |{source[self.span[0]:self.span[1]]}|"
+        )
         if self.arg_list:
             self.arg_list.dbg_print(source, indent + 2)
 
@@ -70,6 +87,9 @@ class ChainExpr:
     type: Literal["chain"]
     span: tuple[int, int]  # includes all trivia before and after the exprs
     exprs: tuple[Expr, ...]
+
+    def dbg_format(self) -> str:
+        return " ".join(expr.dbg_format() for expr in self.exprs)
 
     def dbg_print(self, source: str, indent=0) -> None:
         print(" " * indent + f"chain |{source[self.span[0]:self.span[1]]}|")
@@ -148,11 +168,11 @@ def parse_literal_expr(tokens: list[Token]) -> LiteralExpr:
     return LiteralExpr(type="literal", span=token.span, literal=token, value=value)
 
 
-def parse_arg_list(tokens: list[Token]) -> ArgList:
+def parse_arg_list(tokens: list[Token], cursor: int | None) -> ArgList:
     start = tokens[0].span[0]
     args: list[Expr] = []
-    while tokens[0].kind != ")" and tokens[0].kind != "}":
-        arg = parse_chain_expr(tokens)
+    while True:
+        arg = parse_chain_expr(tokens, cursor)
         if len(arg.exprs) == 0:
             if tokens[0].kind == ")" or tokens[0].kind == "}":
                 break
@@ -168,11 +188,11 @@ def parse_arg_list(tokens: list[Token]) -> ArgList:
     return ArgList(span=(start, end), args=tuple(args))
 
 
-def parse_op_expr(tokens: list[Token]) -> OpExpr:
+def parse_op_expr(tokens: list[Token], cursor: int | None) -> OpExpr:
     head = tokens.pop(0)
 
     if head.kind == "{":
-        arg_list = parse_arg_list(tokens)
+        arg_list = parse_arg_list(tokens, cursor)
         rbrace = tokens.pop(0)
         if rbrace.kind != "}":
             raise Exception(f"expected `}}`, found `{head.text}`")
@@ -186,7 +206,7 @@ def parse_op_expr(tokens: list[Token]) -> OpExpr:
         tokens.pop(0)
     if tokens[0].kind == "(":
         tokens.pop(0)
-        arg_list = parse_arg_list(tokens)
+        arg_list = parse_arg_list(tokens, cursor)
         rparen = tokens.pop(0)
         if rparen.kind != ")":
             raise Exception(f"expected `)`, found `{head.text}`")
@@ -197,37 +217,79 @@ def parse_op_expr(tokens: list[Token]) -> OpExpr:
         return OpExpr(type="op", span=head.span, name=head, arg_list=None)
 
 
-def parse_atom_expr(tokens: list[Token]) -> Expr:
+def parse_atom_expr(tokens: list[Token], cursor: int | None) -> Expr:
     if (
         tokens[0].kind == "symbol"
         or tokens[0].kind == "dotSymbol"
         or tokens[0].kind == "{"
     ):
-        return parse_op_expr(tokens)
+        return parse_op_expr(tokens, cursor)
     else:
         return parse_literal_expr(tokens)
 
 
-def parse_chain_expr(tokens: list[Token]) -> ChainExpr:
+def make_cursor_hint(span: tuple[int, int]) -> Expr:
+    return OpExpr(
+        type="op",
+        span=span,
+        name=Token(kind="symbol", span=span, text="hint"),
+        arg_list=ArgList(
+            span=span,
+            args=(
+                LiteralExpr(
+                    type="literal",
+                    span=span,
+                    literal=Token(kind="str", span=span, text='"cursor"'),
+                    value="cursor",
+                ),
+            ),
+        ),
+    )
+
+
+def parse_chain_expr(tokens: list[Token], cursor: int | None) -> ChainExpr:
     start = tokens[0].span[0]
     exprs: list[Expr] = []
+
+    skip_trivia(tokens)
     while (
         tokens[0].kind != ")"
         and tokens[0].kind != "}"
         and tokens[0].kind != ","
         and tokens[0].kind != "eof"
     ):
-        if tokens[0].kind == "whitespace" or tokens[0].kind == "comment":
-            tokens.pop(0)
-        else:
-            exprs.append(parse_atom_expr(tokens))
+        expr = parse_atom_expr(tokens, cursor)
+        exprs.append(expr)
+        skip_trivia(tokens)
+
     end = tokens[0].span[0]
+
+    if cursor is not None and cursor >= start and cursor <= end:
+        nested_cursor = False
+        for expr in exprs:
+            if (
+                isinstance(expr, OpExpr)
+                and expr.arg_list is not None
+                and cursor >= expr.arg_list.span[0]
+                and cursor <= expr.arg_list.span[1]
+            ):
+                nested_cursor = True
+                break
+
+        if not nested_cursor:
+            for i, expr in enumerate(exprs):
+                if cursor <= expr.span[0]:
+                    break
+            else:
+                i = len(exprs)
+            exprs.insert(i, make_cursor_hint((cursor - 1, cursor + 1)))
+
     return ChainExpr(type="chain", span=(start, end), exprs=tuple(exprs))
 
 
-def parse(source: str) -> Expr:
+def parse(source: str, cursor: int | None = None) -> Expr:
     tokens = lex(source)
-    expr_list = parse_chain_expr(tokens)
+    expr_list = parse_chain_expr(tokens, cursor)
     if tokens[0].kind != "eof":
         raise Exception(f"expected `<eof>`, found `{tokens[0].text}`")
     return expr_list
@@ -235,5 +297,16 @@ def parse(source: str) -> Expr:
 
 if __name__ == "__main__":
     source = sys.argv[1]
-    expr = parse(source)
+    if "|" in source:
+        cursor = source.index("|")
+        source = source[:cursor] + source[cursor + 1 :]
+    else:
+        cursor = None
+    expr = parse(source, cursor)
+    print("-" * os.get_terminal_size()[0])
+    print(source)
+    print("-" * os.get_terminal_size()[0])
+    print(expr.dbg_format())
+    print("-" * os.get_terminal_size()[0])
     expr.dbg_print(source)
+    print("-" * os.get_terminal_size()[0])

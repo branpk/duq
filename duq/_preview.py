@@ -129,7 +129,7 @@ class Preview:
 
     def refresh(self) -> None:
         try:
-            expr = parse(self.source)
+            expr = parse(self.source, self.cursor_position)
             self.ctx.cursor = self.cursor_position
             result = self.ctx.evaluate(expr, None)
         except Exception as e:
