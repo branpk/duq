@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Callable, Iterable, assert_never
+from typing import Any, Callable, assert_never
 
 from duq._syntax import ChainExpr, Expr, OpExpr, parse
 from duq._type_check import DuqTypeError, OpSignature, type_check_value
@@ -75,18 +75,7 @@ class DuqContext:
         if op.signature.is_macro:
             args += arg_exprs
         else:
-            for arg_expr in arg_exprs:
-                arg = self.evaluate(arg_expr, input)
-                if type(arg) is Hinted and arg.hint == "cursor":
-                    return arg
-                args.append(arg)
-            if (
-                expr.arg_list is not None
-                and self.cursor is not None
-                and self.cursor >= expr.arg_list.span[0]
-                and self.cursor <= expr.arg_list.span[1]
-            ):
-                return Hinted("cursor", None)
+            args += [self.evaluate(arg_expr, input) for arg_expr in arg_exprs]
 
         args = tuple(args)
         op.signature.type_check_inputs(input, args)
@@ -95,19 +84,8 @@ class DuqContext:
         return op.op_func(*call_args)
 
     def evaluate_chain_expr(self, expr: ChainExpr, input: Any) -> Any:
-        should_truncate = (
-            self.cursor is not None
-            and self.cursor >= expr.span[0]
-            and self.cursor <= expr.span[1]
-        )
         for subexpr in expr.exprs:
-            if should_truncate and subexpr.span[0] >= (self.cursor or 0):
-                input = Hinted("cursor", input)
-                break
             input = self.evaluate(subexpr, input)
-        else:
-            if should_truncate:
-                input = Hinted("cursor", input)
         return input
 
     def evaluate(self, expr: Expr, input: Any) -> Any:
