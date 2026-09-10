@@ -4,3 +4,5 @@ __pycache__
 /data
 scratch_*
 .env
+dist
+.duq-state.json

@@ -7,7 +7,7 @@ It is intended to be concise, extensible, and interactive.
 
 <br>
 
-<img src="assets/demo.gif" width=720>
+<img src="https://github.com/branpk/duq/raw/main/assets/demo.gif" width=720>
 
 <br>
 
@@ -25,3 +25,8 @@ python -m duq
 # Single command
 python -m duq '"https://example.com" fetch {html select("title") index(0) text}'
 ```
+
+## License
+
+`duq` is licensed under the Apache-2.0 license OR MIT license.
+

@@ -27,7 +27,7 @@ from duq._preview import Preview
 
 
 async def run_tui():
-    state_file = Path("data/state.json")
+    state_file = Path(".duq-state.json")
     try:
         with open(state_file) as f:
             state = json.load(f)
