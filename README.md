@@ -7,4 +7,4 @@ It is intended to be concise, extensible, and interactive.
 
 <br>
 
-![demo](https://github.com/branpk/duq/raw/main/assets/demo.gif)
+<img src="assets/demo.gif" width=720>
