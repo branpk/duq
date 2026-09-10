@@ -27,12 +27,12 @@ from duq._preview import Preview
 
 
 async def run_tui():
-    state_file = Path(".duq-state.json")
-    try:
-        with open(state_file) as f:
-            state = json.load(f)
-    except:
-        state = {"source": ""}
+    # state_file = Path(".duq-state.json")
+    # try:
+    #     with open(state_file) as f:
+    #         state = json.load(f)
+    # except:
+    #     state = {"source": ""}
 
     key_bindings = KeyBindings()
 
@@ -95,9 +95,9 @@ async def run_tui():
 
     def on_source_changed(source_buffer: Buffer) -> None:
         preview.set_source(source_buffer.text)
-        state["source"] = source_buffer.text
-        with open(state_file, "w") as f:
-            json.dump(state, f, indent=2)
+        # state["source"] = source_buffer.text
+        # with open(state_file, "w") as f:
+        #     json.dump(state, f, indent=2)
 
     def on_cursor_position_changed(source_buffer: Buffer) -> None:
         preview.set_cursor_position(source_buffer.cursor_position)
@@ -126,8 +126,8 @@ async def run_tui():
         on_text_changed=on_source_changed,
         on_cursor_position_changed=on_cursor_position_changed,
     )
-    source_buffer.text = state["source"]
-    source_buffer.cursor_position = len(source_buffer.text)
+    # source_buffer.text = state["source"]
+    # source_buffer.cursor_position = len(source_buffer.text)
 
     split = HSplit(
         [
