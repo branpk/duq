@@ -8,3 +8,7 @@ It is intended to be concise, extensible, and interactive.
 <br>
 
 <img src="assets/demo.gif" width=720>
+
+<br>
+
+No AI-generated source code is used in this project.
