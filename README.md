@@ -7,4 +7,4 @@ It is intended to be concise, extensible, and interactive.
 
 <br>
 
-<video controls src="[assets/demo.mp4](https://github.com/branpk/duq/raw/refs/heads/main/assets/demo.mp4)" width=720 />
+<video controls src="https://github.com/branpk/duq/raw/refs/heads/main/assets/demo.mp4" width=720 />
