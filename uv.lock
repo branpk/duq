@@ -192,8 +192,8 @@ wheels = [
 ]
 
 [[package]]
-name = "duq"
-version = "0.1.0"
+name = "duqlang"
+version = "0.1.1"
 source = { editable = "." }
 dependencies = [
     { name = "bs4" },

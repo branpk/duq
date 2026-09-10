@@ -12,3 +12,16 @@ It is intended to be concise, extensible, and interactive.
 <br>
 
 No AI-generated source code is used in this project.
+
+
+## Install
+
+```bash
+pip install duqlang
+
+# Interactive
+python -m duq
+
+# Single command
+python -m duq '"https://example.com" fetch {html select("title") index(0) text}'
+```
