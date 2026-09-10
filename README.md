@@ -7,4 +7,4 @@ It is intended to be concise, extensible, and interactive.
 
 <br>
 
-<video controls src="./assets/demo.mp4" width=720></video>
+[Demo](./assets/demo.mp4)
