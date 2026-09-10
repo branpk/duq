@@ -1,6 +1,6 @@
 [project]
 name = "duqlang"
-version = "0.1.4"
+version = "0.1.5"
 description = "Data-processing language and CLI"
 requires-python = ">=3.12"
 readme = "README.md"
@@ -12,6 +12,12 @@ dependencies = [
     "httpx>=0.28.1",
     "prompt-toolkit>=3.0.53",
 ]
+
+[project.urls]
+Repository = "https://github.com/branpk/duq"
+
+[project.scripts]
+duq = "duq:cli"
 
 [dependency-groups]
 dev = [

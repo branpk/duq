@@ -20,10 +20,10 @@ No AI-generated source code is used in this project.
 pip install duqlang
 
 # Interactive
-python -m duq
+duq
 
 # Single command
-python -m duq '"https://example.com" fetch {html select("title") index(0) text}'
+duq '"https://example.com" fetch {html select("title") index(0) text}'
 ```
 
 ## License
